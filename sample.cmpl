@@ -2,16 +2,16 @@
 myInt := 10;
 
 # variable declaration with explicit types
-bool myBool = true;
+myBool:bool = true;
 
 # updating a variable
-myBool = !myBool;
+myBool:bool = !myBool;
 
 # variable reassignment is not allowed:
 # myInt := 42; -> this will error
 
 {
-    int myInt = 42; # this will work, because the variable is declared in a new scope
+    myInt:int = 42; # this will work, because the variable is declared in a new scope
     myInt = 128; # this will update the variable in the current scope
 }
 

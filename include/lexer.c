@@ -25,18 +25,24 @@ ParseSource tokenize(char *source, size_t source_size) {
     ch_ht_set(&operators, '<', Lt);
     ch_ht_set(&operators, '>', Gt);
     ch_ht_set(&operators, '!', Not);
+    ch_ht_set(&operators, ':', Colon);
     ch_ht_set(&operators, '=', Eq);
 
-    ChHashTable modifiers = new_ch_ht();
-    ch_ht_set(&modifiers, '+', PlusEq);
-    ch_ht_set(&modifiers, '-', MinusEq);
-    ch_ht_set(&modifiers, '*', StarEq);
-    ch_ht_set(&modifiers, '/', SlashEq);
-    ch_ht_set(&modifiers, '%', ModEq);
-    ch_ht_set(&modifiers, '<', LtE);
-    ch_ht_set(&modifiers, '>', GtE);
-    ch_ht_set(&modifiers, '!', NotEq);
-    ch_ht_set(&modifiers, '=', EqEq);
+    ChHashTable eq_modifiers = new_ch_ht();
+    ch_ht_set(&eq_modifiers, '+', PlusEq);
+    ch_ht_set(&eq_modifiers, '-', MinusEq);
+    ch_ht_set(&eq_modifiers, '*', StarEq);
+    ch_ht_set(&eq_modifiers, '/', SlashEq);
+    ch_ht_set(&eq_modifiers, '%', ModEq);
+    ch_ht_set(&eq_modifiers, '<', LtE);
+    ch_ht_set(&eq_modifiers, '>', GtE);
+    ch_ht_set(&eq_modifiers, '!', NotEq);
+    ch_ht_set(&eq_modifiers, ':', ColEq);
+    ch_ht_set(&eq_modifiers, '=', EqEq);
+
+    ChHashTable self_modifiers = new_ch_ht();
+    ch_ht_set(&self_modifiers, '+', Inc);
+    ch_ht_set(&self_modifiers, '-', Dec);
 
     LexMap keywords = {.key = NULL, .left = NULL, .right = NULL};
     lm_insert(&keywords, "if", If);
@@ -56,6 +62,7 @@ ParseSource tokenize(char *source, size_t source_size) {
     size_t end;
     size_t line = 1;
     size_t line_start = 0;
+    printf("Started lexing\n");
     while (start < source_size) {
         end = start + 1;
         Token token = {.ln = line, .start = start, .ln_start = line_start};
@@ -74,16 +81,6 @@ ParseSource tokenize(char *source, size_t source_size) {
                 start++;
             }
             continue;
-        case ':':
-            if (source[start + 1] == '=') {
-                token.ttype = ColEq;
-                start += 2;
-            } else {
-                token.ttype = Illegal;
-                start++;
-            }
-            end = start;
-            break;
         case '|':
             if (source[start + 1] == '|') {
                 token.ttype = Or;
@@ -112,7 +109,14 @@ ParseSource tokenize(char *source, size_t source_size) {
             TokenType op_ttype = ch_ht_get(&operators, ch);
             if (op_ttype != Illegal) {
                 if (source[start + 1] == '=') {
-                    token.ttype = ch_ht_get(&modifiers, source[start + 1]);
+                    token.ttype = ch_ht_get(&eq_modifiers, ch);
+                    start += 2;
+                    end = start;
+                    break;
+                }
+                TokenType ttype = ch_ht_get(&self_modifiers, ch);
+                if (ttype != Illegal) {
+                    token.ttype = ttype;
                     start += 2;
                     end = start;
                     break;

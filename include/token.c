@@ -94,7 +94,9 @@ ChHashTable new_ch_ht() {
 }
 
 void tt_ht_set(TTHashTable *table, TokenType ttype, char *lexem) {
-    table->values[(size_t)ttype] = lexem;
+    char *str = malloc(sizeof(char));
+    strcpy(str, lexem);
+    table->values[(size_t)ttype] = str; // = lexem;
 }
 
 char *tt_ht_get(TTHashTable *table, TokenType ttype) {

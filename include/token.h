@@ -29,6 +29,7 @@ typedef enum {
     False,  // false
 
     Identifier, // any alphanumeric value starting with an alpha char
+    Colon,
 
     Eq,      // =
     ColEq,   // :=
@@ -81,7 +82,7 @@ typedef struct {
 } ParseSource;
 
 typedef struct {
-    char *values[45];
+    char *values[46];
 } TTHashTable;
 
 typedef struct {

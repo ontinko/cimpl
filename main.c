@@ -51,6 +51,7 @@ int main(int argc, char **argv) {
     tt_ht_set(&preview, True, "true");
     tt_ht_set(&preview, False, "false");
     tt_ht_set(&preview, Eq, "=");
+    tt_ht_set(&preview, Colon, ":");
     tt_ht_set(&preview, ColEq, ":=");
     tt_ht_set(&preview, PlusEq, "+=");
     tt_ht_set(&preview, MinusEq, "-=");

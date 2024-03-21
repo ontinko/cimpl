@@ -78,7 +78,7 @@ typedef struct {
 
 typedef struct {
     size_t size;
-    Token *tokens;
+    Token **tokens;
 } ParseSource;
 
 typedef struct {
@@ -93,11 +93,15 @@ typedef struct {
     TokenType values[300];
 } ChHashTable;
 
-typedef struct Node {
+typedef struct {
+    int values[46];
+} TTIntHashTable;
+
+typedef struct LexMap {
     char *key;
     TokenType ttype;
-    struct Node *left;
-    struct Node *right;
+    struct LexMap *left;
+    struct LexMap *right;
 } LexMap;
 
 void lm_insert(LexMap *map, char *lex, TokenType ttype);
@@ -110,11 +114,17 @@ TTHashTable new_tt_ht();
 
 ChHashTable new_ch_ht();
 
+TTIntHashTable new_tt_int_ht();
+
 void tt_ht_set(TTHashTable *table, TokenType ttype, char *lexem);
 
 void l_ht_set(LexHashTable *table, char *lexem, TokenType ttype);
 
 void ch_ht_set(ChHashTable *table, char ch, TokenType ttype);
+
+void tt_int_ht_set(TTIntHashTable *table, TokenType ttype, int prec);
+
+int tt_int_ht_get(TTIntHashTable *table, TokenType ttype);
 
 char *tt_ht_get(TTHashTable *table, TokenType ttype);
 

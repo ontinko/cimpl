@@ -1,4 +1,6 @@
+#include "include/ast.h"
 #include "include/lexer.h"
+#include "include/parser.h"
 #include "include/token.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -82,6 +84,60 @@ int main(int argc, char **argv) {
     printf("Size: %lu\n", p_source.size);
 
     for (size_t i = 0; i < p_source.size; i++) {
-        printf("%s\n", token_view(&preview, &p_source.tokens[i], source));
+        printf("%lu:   %s\n", i,
+               token_view(&preview, p_source.tokens[i], source));
+    }
+
+    TTIntHashTable precs = new_tt_int_ht();
+    tt_int_ht_set(&precs, Number, 1);
+    tt_int_ht_set(&precs, Identifier, 1);
+    tt_int_ht_set(&precs, True, 1);
+    tt_int_ht_set(&precs, False, 1);
+
+    tt_int_ht_set(&precs, Lt, 2);
+    tt_int_ht_set(&precs, Gt, 2);
+    tt_int_ht_set(&precs, EqEq, 2);
+    tt_int_ht_set(&precs, NotEq, 2);
+
+    tt_int_ht_set(&precs, Plus, 3);
+    tt_int_ht_set(&precs, Minus, 3);
+
+    tt_int_ht_set(&precs, Star, 4);
+    tt_int_ht_set(&precs, Slash, 4);
+
+    tt_int_ht_set(&precs, Mod, 5);
+
+    tt_int_ht_set(&precs, Or, 6);
+    tt_int_ht_set(&precs, And, 7);
+    tt_int_ht_set(&precs, Not, 8);
+
+    TTIntHashTable infixes = new_tt_int_ht();
+    tt_int_ht_set(&infixes, Plus, 1);
+    tt_int_ht_set(&infixes, Minus, 1);
+    tt_int_ht_set(&infixes, Star, 1);
+    tt_int_ht_set(&infixes, Slash, 1);
+    tt_int_ht_set(&infixes, Mod, 1);
+    tt_int_ht_set(&infixes, Or, 1);
+    tt_int_ht_set(&infixes, And, 1);
+    tt_int_ht_set(&infixes, EqEq, 1);
+    tt_int_ht_set(&infixes, NotEq, 1);
+    tt_int_ht_set(&infixes, Gt, 1);
+    tt_int_ht_set(&infixes, Lt, 1);
+    tt_int_ht_set(&infixes, GtE, 1);
+    tt_int_ht_set(&infixes, LtE, 1);
+
+    ParseCache cache = {.err = NULL,
+                        .current = 0,
+                        .legal_infixes = &infixes,
+                        .precs = &precs,
+                        .tokens = p_source.tokens,
+                        .tokens_size = p_source.size};
+    size_t pg_size = 0;
+    Stmt **program = NULL;
+    printf("Started parsing\n");
+    parse(&cache, 0, &program, &pg_size); // breaks in the parser
+    printf("Finished successfully!\n");
+    if (cache.err != NULL) {
+        printf("Error at token %s\n", token_view(&preview, cache.err->token, source));
     }
 }

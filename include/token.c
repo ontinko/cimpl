@@ -93,10 +93,14 @@ ChHashTable new_ch_ht() {
     return result;
 }
 
+TTIntHashTable new_tt_int_ht() {
+    TTIntHashTable result = {.values = {-1}};
+    return result;
+}
+
 void tt_ht_set(TTHashTable *table, TokenType ttype, char *lexem) {
-    char *str = malloc(sizeof(char));
-    strcpy(str, lexem);
-    table->values[(size_t)ttype] = str; // = lexem;
+    table->values[(size_t)ttype] = malloc(strlen(lexem) + 1);
+    strcpy(table->values[(size_t)ttype], lexem);
 }
 
 char *tt_ht_get(TTHashTable *table, TokenType ttype) {
@@ -134,4 +138,12 @@ char *token_view(TTHashTable *preview, Token *token, char *source) {
     default:
         return tt_ht_get(preview, token->ttype);
     }
+}
+
+void tt_int_ht_set(TTIntHashTable *table, TokenType ttype, int prec) {
+    table->values[(size_t)ttype] = prec;
+}
+
+int tt_int_ht_get(TTIntHashTable *table, TokenType ttype) {
+    return table->values[(size_t)ttype];
 }

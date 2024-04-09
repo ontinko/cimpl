@@ -1,5 +1,6 @@
 #include "token.h"
 #include "utils.h"
+#include "lexer.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,7 +9,7 @@
 ParseSource tokenize(char *source, size_t source_size) {
     ParseSource result = {.size = 0};
 
-    ChHashTable singlechars = new_ch_ht();
+    ChHashTable singlechars = ch_hashtable_create();
     ch_ht_set(&singlechars, ',', Comma);
     ch_ht_set(&singlechars, ';', Semicolon);
     ch_ht_set(&singlechars, '{', LBrace);
@@ -16,7 +17,7 @@ ParseSource tokenize(char *source, size_t source_size) {
     ch_ht_set(&singlechars, '(', LParen);
     ch_ht_set(&singlechars, ')', RParen);
 
-    ChHashTable operators = new_ch_ht();
+    ChHashTable operators = ch_hashtable_create();
     ch_ht_set(&operators, '+', Plus);
     ch_ht_set(&operators, '-', Minus);
     ch_ht_set(&operators, '*', Star);
@@ -28,7 +29,7 @@ ParseSource tokenize(char *source, size_t source_size) {
     ch_ht_set(&operators, ':', Colon);
     ch_ht_set(&operators, '=', Eq);
 
-    ChHashTable eq_modifiers = new_ch_ht();
+    ChHashTable eq_modifiers = ch_hashtable_create();
     ch_ht_set(&eq_modifiers, '+', PlusEq);
     ch_ht_set(&eq_modifiers, '-', MinusEq);
     ch_ht_set(&eq_modifiers, '*', StarEq);
@@ -40,7 +41,7 @@ ParseSource tokenize(char *source, size_t source_size) {
     ch_ht_set(&eq_modifiers, ':', ColEq);
     ch_ht_set(&eq_modifiers, '=', EqEq);
 
-    ChHashTable self_modifiers = new_ch_ht();
+    ChHashTable self_modifiers = ch_hashtable_create();
     ch_ht_set(&self_modifiers, '+', Inc);
     ch_ht_set(&self_modifiers, '-', Dec);
 
@@ -51,7 +52,7 @@ ParseSource tokenize(char *source, size_t source_size) {
     lm_insert(&keywords, "while", While);
     lm_insert(&keywords, "break", Break);
     lm_insert(&keywords, "continue", Continue);
-    lm_insert(&keywords, "def", Def);
+    lm_insert(&keywords, "fn", Fn);
     lm_insert(&keywords, "return", Return);
     lm_insert(&keywords, "int", IntType);
     lm_insert(&keywords, "bool", BoolType);
@@ -144,12 +145,11 @@ ParseSource tokenize(char *source, size_t source_size) {
                 start = end;
                 break;
             }
-            if (isalpha(ch)) {
-                while (isdigit(source[end]) || isalpha(source[end])) {
+            if (isalpha(ch) || ch == '_') {
+                while (isdigit(source[end]) || isalpha(source[end]) || source[end] == '_') {
                     end++;
                 }
-                TokenType kwtype =
-                    lm_get(&keywords, substring(source, start, end));
+                TokenType kwtype = lm_get(&keywords, substring(source, start, end));
                 if (kwtype != Illegal) {
                     token->ttype = kwtype;
                 } else {

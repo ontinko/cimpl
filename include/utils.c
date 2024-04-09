@@ -3,7 +3,7 @@
 
 char *substring(char *string, int start, int end) {
     int size = end - start + 1;
-    char *result = (char *)malloc((size) * sizeof(char));
+    char *result = malloc((size) * sizeof(char));
     for (int i = start; i < end; i++) {
         result[i - start] = string[i];
     }

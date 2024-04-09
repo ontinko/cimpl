@@ -78,22 +78,22 @@ TokenType lm_get(LexMap *map, char *lex) {
     }
 }
 
-LexHashTable new_l_ht() {
+LexHashTable lex_hashtable_create() {
     LexHashTable result = {.values = {Illegal}};
     return result;
 }
 
-TTHashTable new_tt_ht() {
+TTHashTable tt_hashtable_create() {
     TTHashTable result = {.values = {NULL}};
     return result;
 }
 
-ChHashTable new_ch_ht() {
+ChHashTable ch_hashtable_create() {
     ChHashTable result = {.values = {0}};
     return result;
 }
 
-TTIntHashTable new_tt_int_ht() {
+TTIntHashTable tt_int_hashtable_create() {
     TTIntHashTable result = {.values = {-1}};
     return result;
 }

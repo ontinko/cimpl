@@ -60,7 +60,7 @@ typedef enum {
     Break,    // break
     Continue, // continue
 
-    Def,    // def
+    Fn,     // fn
     Return, // return
 
     IntType, // int
@@ -108,13 +108,13 @@ void lm_insert(LexMap *map, char *lex, TokenType ttype);
 
 TokenType lm_get(LexMap *map, char *lex);
 
-LexHashTable new_l_ht();
+LexHashTable lex_hashtable_create();
 
-TTHashTable new_tt_ht();
+TTHashTable tt_hashtable_create();
 
-ChHashTable new_ch_ht();
+ChHashTable ch_hashtable_create();
 
-TTIntHashTable new_tt_int_ht();
+TTIntHashTable tt_int_hashtable_create();
 
 void tt_ht_set(TTHashTable *table, TokenType ttype, char *lexem);
 

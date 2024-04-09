@@ -8,34 +8,143 @@
 int EOF_PREC = -1;
 int PAREN_PREC = 0;
 
-void advance(ParseCache *cache, size_t step) { cache->current += step; }
+static void advance(ParseCache *cache, size_t step) { cache->current += step; }
 
-Token *peek(ParseCache *cache, size_t step) {
-    return cache->tokens[cache->current + step];
-}
+static Token *peek(ParseCache *cache, size_t step) { return cache->tokens[cache->current + step]; }
 
-Expression *parse_exp(ParseCache *cache, int prec, TokenType end);
-
-void add_error(ParseCache *cache, char *message, Token *token) {
-    printf("ERROR %lu:%lu: %s\n", token->ln, token->start - token->ln_start + 1,
-           message);
-    ParseError *err = malloc(sizeof(ParseError));
+static void add_error(ParseCache *cache, char *message, Token *token) {
+    Error *err = malloc(sizeof(Error));
+    err->type = ParseError;
     err->message = malloc(strlen(message) + 1);
     strcpy(err->message, message);
     err->token = token;
     cache->err = err;
 }
 
+static void parse_fn_params(ParseCache *cache, FunctionType *fn_type) {
+    Token *token = cache->tokens[cache->current];
+    fn_type->params_size = 0;
+    fn_type->params = NULL;
+    while (1) {
+        Token *name = peek(cache, 0);
+        if (name->ttype != Identifier) {
+            add_error(cache, "expected parameter name", name);
+            return;
+        }
+        if (peek(cache, 1)->ttype != Colon) {
+            add_error(cache, "expected parameter type", peek(cache, 1));
+            return;
+        }
+        advance(cache, 2);
+        GenericDT *param_type = parse_type(cache);
+        if (cache->err != NULL) {
+            return;
+        }
+        FnParam *param = fn_param_create();
+        param->datatype = param_type;
+        param->name = name;
+        fn_type->params_size++;
+        fn_type->params = realloc(fn_type->params, sizeof(FnParam *) * fn_type->params_size);
+        fn_type->params[fn_type->params_size - 1] = param;
+        advance(cache, 1);
+        if (peek(cache, 0)->ttype == Comma) {
+            advance(cache, 1);
+            continue;
+        } else if (peek(cache, 0)->ttype == RParen) {
+            break;
+        } else {
+            add_error(cache, "expected comma of right paren", peek(cache, 1));
+            return;
+        }
+    }
+    token = cache->tokens[cache->current];
+}
+
+static GenericDT *parse_type(ParseCache *cache) {
+    Token *token = cache->tokens[cache->current];
+    switch (token->ttype) {
+    case IntType: {
+        GenericDT *datatype = generic_datatype_create();
+        datatype->type = Simple;
+        datatype->data.simple_datatype = Int;
+        return datatype;
+    }
+    case BoolType: {
+        GenericDT *datatype = generic_datatype_create();
+        datatype->type = Simple;
+        datatype->data.simple_datatype = Bool;
+        return datatype;
+    }
+    case Fn: {
+        GenericDT *datatype = generic_datatype_create();
+        FunctionType *fn_type = function_type_create();
+        GenericDT *return_type;
+        datatype->type = Complex;
+        if (peek(cache, 1)->ttype != LParen) {
+            add_error(cache, "expected list of arguments", token);
+            return NULL;
+        }
+        fn_type->params_size = 0;
+        fn_type->params = NULL;
+        advance(cache, 2);
+        if (peek(cache, 0)->ttype != RParen) {
+            while (1) {
+                FnParam *param = fn_param_create();
+                GenericDT *param_type = parse_type(cache);
+                if (cache->err != NULL) {
+                    return NULL;
+                }
+                param->datatype = param_type;
+                param->name = NULL;
+                fn_type->params_size++;
+                FnParam **new_params = realloc(fn_type->params, fn_type->params_size);
+                new_params[fn_type->params_size - 1] = param;
+                fn_type->params = new_params;
+                advance(cache, 1);
+                Token *current = peek(cache, 0);
+                if (current->ttype == RParen) {
+                    break;
+                }
+                if (current->ttype == Comma) {
+                    advance(cache, 1);
+                    continue;
+                }
+                add_error(cache, "expected comma or right paren", current);
+                return NULL;
+            }
+        }
+        Token *next = peek(cache, 1);
+        if (next->ttype != Colon) {
+            return_type = generic_datatype_create();
+            return_type->type = Simple;
+            return_type->data.simple_datatype = Void;
+        } else {
+            advance(cache, 2);
+            return_type = parse_type(cache);
+            if (cache->err != NULL) {
+                return NULL;
+            }
+        }
+        fn_type->return_type = return_type;
+        datatype->data.fn_datatype = fn_type;
+        return datatype;
+    }
+    default: {
+        add_error(cache, "expected type specification", token);
+        return NULL;
+    }
+    }
+};
+
 Call *parse_fn_call(ParseCache *cache) {
-    printf("Parsing fn call\n");
-    Call *call = malloc(sizeof(Call));
+    Call *call = call_create();
     Token *name = peek(cache, 0);
     call->call_name = name;
-    call->args = NULL;
     advance(cache, 2);
+    Token *current = peek(cache, 0);
     int has_args = peek(cache, 0)->ttype != RParen;
     if (has_args) {
-        printf("Has arguments\n");
+    } else {
     }
     while (has_args) {
         Token *token = peek(cache, 0);
@@ -44,7 +153,7 @@ Call *parse_fn_call(ParseCache *cache) {
             return NULL;
         }
         call->args_size++;
-        call->args = realloc(call->args, sizeof(Expression) * call->args_size);
+        call->args = realloc(call->args, sizeof(Expression *) * call->args_size);
         call->args[call->args_size - 1] = exp;
         Token *next = peek(cache, 1);
         if (next->ttype == Comma) {
@@ -66,20 +175,32 @@ Expression *parse_prefix(ParseCache *cache) {
     Token *token = peek(cache, 0);
     switch (token->ttype) {
     case Number: {
-        Expression *exp = malloc(sizeof(Expression));
-        exp->exp = malloc(sizeof(ExpUnion));
-        OpExpression sub_exp = {
-            .datatype = Int, .token = token, .right = NULL, .left = NULL};
-        exp->exp->exp = sub_exp;
+        Expression *exp = expression_create();
+        OpExpression *number = op_expression_create();
+        GenericDT *datatype = generic_datatype_create();
+        exp->type = ExpExp;
+        datatype->type = Simple;
+        datatype->data.simple_datatype = Int;
+        number->datatype = datatype;
+        number->token = token;
+        number->right = NULL;
+        number->left = NULL;
+        exp->data.exp = number;
         return exp;
     }
     case True:
     case False: {
-        Expression *exp = malloc(sizeof(Expression));
-        exp->exp = malloc(sizeof(ExpUnion));
-        OpExpression sub_exp = {
-            .datatype = Bool, .token = token, .right = NULL, .left = NULL};
-        exp->exp->exp = sub_exp;
+        Expression *exp = expression_create();
+        OpExpression *bool = op_expression_create();
+        GenericDT *datatype = generic_datatype_create();
+        exp->type = ExpExp;
+        datatype->type = Simple;
+        datatype->data.simple_datatype = Bool;
+        bool->datatype = datatype;
+        bool->token = token;
+        bool->left = NULL;
+        bool->right = NULL;
+        exp->data.exp = bool;
         return exp;
     }
     case Not: {
@@ -88,28 +209,34 @@ Expression *parse_prefix(ParseCache *cache) {
         if (cache->err != NULL) {
             return NULL;
         }
-        Expression *exp = malloc(sizeof(Expression));
-        exp->exp = malloc(sizeof(ExpUnion));
-        OpExpression negation = {
-            .datatype = Bool, .token = token, .right = NULL, .left = sub_exp};
-        exp->exp->exp = negation;
+        Expression *exp = expression_create();
+        OpExpression *bool = op_expression_create();
+        GenericDT *datatype = generic_datatype_create();
+        exp->type = ExpExp;
+        datatype->type = Simple;
+        datatype->data.simple_datatype = Bool;
+        bool->datatype = datatype;
+        bool->token = token;
+        bool->left = sub_exp;
+        exp->data.exp = bool;
         return exp;
     }
     case Identifier: {
-        Expression *exp = malloc(sizeof(Expression));
-        exp->exp = malloc(sizeof(ExpUnion));
+        Expression *exp = expression_create();
         if (peek(cache, 1)->ttype != LParen) {
-            OpExpression sub_exp = {
-                .token = token, .right = NULL, .left = NULL};
-            exp->exp->exp = sub_exp;
+            OpExpression *id = op_expression_create();
+            id->token = token;
+            exp->type = ExpExp;
+            exp->data.exp = id;
             return exp;
         }
+        exp->type = FnCallExp;
         Call *fn_call = parse_fn_call(cache);
         Token *cur_t = peek(cache, 0);
         if (cache->err != NULL) {
             return NULL;
         }
-        exp->exp->fn_call = *fn_call;
+        exp->data.fn_call = fn_call;
         return exp;
     }
     case LParen:
@@ -126,7 +253,7 @@ Expression *parse_prefix(ParseCache *cache) {
     }
 };
 
-Expression *parse_exp(ParseCache *cache, int prec, TokenType end) {
+static Expression *parse_exp(ParseCache *cache, int prec, TokenType end) {
     Expression *left = parse_prefix(cache);
     if (cache->err != NULL) {
         return NULL;
@@ -134,8 +261,7 @@ Expression *parse_exp(ParseCache *cache, int prec, TokenType end) {
     while (1) {
         Token *op = peek(cache, 1);
         if (op->ttype == Eof) {
-            add_error(cache, "expected ; at the end of the statement",
-                      peek(cache, 0));
+            add_error(cache, "expected ; at the end of the statement", peek(cache, 0));
             return NULL;
         }
         int op_prec = tt_int_ht_get(cache->precs, op->ttype);
@@ -146,33 +272,54 @@ Expression *parse_exp(ParseCache *cache, int prec, TokenType end) {
             add_error(cache, "invalid infix", op);
             return NULL;
         }
-        Expression *next_left = malloc(sizeof(Expression));
-        next_left->exp = malloc(sizeof(ExpUnion));
+        Expression *next_left = expression_create();
+        GenericDT *datatype = generic_datatype_create();
+        OpExpression *op_exp = op_expression_create();
         next_left->type = ExpExp;
+        datatype->type = Simple;
+        switch (op->ttype) {
+        case Plus:
+        case Minus:
+        case Star:
+        case Slash:
+        case Mod: {
+            datatype->data.simple_datatype = Int;
+            break;
+        }
+        default: {
+            datatype->data.simple_datatype = Bool;
+            break;
+        }
+        }
         advance(cache, 2);
         Expression *right = parse_exp(cache, op_prec, end);
         if (cache->err != NULL) {
             return NULL;
         }
-        OpExpression op_exp = {.token = op, .left = left, .right = right};
-        next_left->exp->exp = op_exp;
+        op_exp->token = op;
+        op_exp->left = left;
+        op_exp->right = right;
+        op_exp->datatype = datatype;
+        next_left->data.exp = op_exp;
         left = next_left;
     }
     return left;
 }
 
 Oneliner *parse_oneliner(ParseCache *cache, TokenType end) {
-    Oneliner *ol = malloc(sizeof(Oneliner));
-    ol->stmt = malloc(sizeof(OnelinerUnion));
+    Oneliner *ol = oneliner_create();
     Token *name = peek(cache, 0);
     Token *next = peek(cache, 1);
     if (next->ttype == LParen) {
         ol->type = CallOL;
-        ol->stmt->call = *parse_fn_call(cache);
+        ol->data.call = parse_fn_call(cache);
+        if (cache->err != NULL) {
+            return NULL;
+        }
         return ol;
     }
     ol->type = AssignmentOL;
-    Assignment *ass = malloc(sizeof(Assignment));
+    Assignment *ass = assignment_create();
     ass->var = name;
     switch (next->ttype) {
     case Inc:
@@ -180,7 +327,7 @@ Oneliner *parse_oneliner(ParseCache *cache, TokenType end) {
         ass->op = next;
         ass->new_var = 0;
         ass->exp = NULL;
-        ol->stmt->assignment = *ass;
+        ol->data.assignment = ass;
         advance(cache, 1);
         return ol;
     case Eq:
@@ -191,23 +338,17 @@ Oneliner *parse_oneliner(ParseCache *cache, TokenType end) {
     case SlashEq:
     case ModEq:
         ass->op = next;
-        ass->new_var = 0;
+        ass->new_var = next->ttype == ColEq;
         advance(cache, 1);
         break;
     case Colon:
         ass->new_var = 1;
         advance(cache, 2);
-        Token *dt_token = peek(cache, 0);
-        switch (dt_token->ttype) {
-        case BoolType:
-            ass->datatype = Bool;
-            break;
-        case IntType:
-            ass->datatype = Int;
-            break;
-        default:
-            add_error(cache, "invalid var type", dt_token);
+        GenericDT *datatype = parse_type(cache);
+        if (cache->err != NULL) {
+            return NULL;
         }
+        ass->datatype = datatype;
         next = peek(cache, 1);
         if (next->ttype != Eq) {
             add_error(cache, "expected =", next);
@@ -218,7 +359,6 @@ Oneliner *parse_oneliner(ParseCache *cache, TokenType end) {
         break;
     default:
         add_error(cache, "unexpected operator", next);
-        printf("Added error\n");
         return NULL;
     }
     advance(cache, 1);
@@ -227,7 +367,7 @@ Oneliner *parse_oneliner(ParseCache *cache, TokenType end) {
         return NULL;
     }
     ass->exp = exp;
-    ol->stmt->assignment = *ass;
+    ol->data.assignment = ass;
 
     return ol;
 }
@@ -238,13 +378,11 @@ void parse(ParseCache *cache, int block, Stmt ***stmts, size_t *stmts_size) {
         Stmt *stmt;
         switch (token->ttype) {
         case LBrace: {
-            printf("LBrace at %lu:%lu\n", token->ln,
-                   token->start - token->ln_start + 1);
-            stmt = malloc(sizeof(Stmt));
-            stmt->stmt = malloc(sizeof(StmtUnion));
+            stmt = stmt_create();
             stmt->type = OpenScopeStmt;
-            OpenScopeCmd o_cmd = {.token = token};
-            stmt->stmt->open_scope_cmd = o_cmd;
+            OpenScopeCmd *o_cmd = open_scope_cmd_create();
+            o_cmd->token = token;
+            stmt->data.open_scope_cmd = o_cmd;
             (*stmts_size)++;
             *stmts = realloc(*stmts, (*stmts_size) * sizeof(Stmt *));
             (*stmts)[*stmts_size - 1] = stmt;
@@ -253,13 +391,12 @@ void parse(ParseCache *cache, int block, Stmt ***stmts, size_t *stmts_size) {
             if (cache->err != NULL) {
                 return;
             }
-            printf("Parsed block\n");
             token = peek(cache, 0);
-            stmt = malloc(sizeof(Stmt));
-            stmt->stmt = malloc(sizeof(StmtUnion));
+            stmt = stmt_create();
             stmt->type = CloseScopeStmt;
-            CloseScopeCmd c_cmd = {.token = token};
-            stmt->stmt->close_scope_cmd = c_cmd;
+            CloseScopeCmd *c_cmd = close_scope_cmd_create();
+            c_cmd->token = token;
+            stmt->data.close_scope_cmd = c_cmd;
             (*stmts_size)++;
             *stmts = realloc(*stmts, (*stmts_size) * sizeof(Stmt *));
             (*stmts)[(*stmts_size) - 1] = stmt;
@@ -267,56 +404,38 @@ void parse(ParseCache *cache, int block, Stmt ***stmts, size_t *stmts_size) {
             continue;
         }
         case RBrace: {
-            printf("RBrace at %lu:%lu\n", token->ln,
-                   token->start - token->ln_start + 1);
             if (!block) {
-                printf("RBrace outside of a block\n");
-                add_error(cache,
-                          "unexpected right brace: no open scope to close",
-                          token);
+                add_error(cache, "unexpected right brace: no open scope to close", token);
             }
             return;
         }
         case Break: {
-            printf("Break at %lu:%lu\n", token->ln,
-                   token->start - token->ln_start + 1);
-            stmt = malloc(sizeof(Stmt));
-            stmt->stmt = malloc(sizeof(StmtUnion));
             if (peek(cache, 1)->ttype != Semicolon) {
-                add_error(cache,
-                          "expected semicolon at the end of the statement",
-                          token);
+                add_error(cache, "expected semicolon at the end of the statement", token);
                 return;
             }
+            stmt = stmt_create();
             stmt->type = BreakStmt;
-            BreakCmd cmd = {.token = token};
-            stmt->stmt->break_cmd = cmd;
+            BreakCmd *cmd = break_cmd_create();
+            cmd->token = token;
+            stmt->data.break_cmd = cmd;
             advance(cache, 1);
             break;
         }
         case Continue: {
-            printf("Continue at %lu:%lu\n", token->ln,
-                   token->start - token->ln_start + 1);
-            stmt = malloc(sizeof(Stmt));
-            stmt->stmt = malloc(sizeof(StmtUnion));
             if (peek(cache, 1)->ttype != Semicolon) {
-                add_error(cache,
-                          "expected semicolon at the end of the statement",
-                          token);
+                add_error(cache, "expected semicolon at the end of the statement", token);
                 return;
             }
+            stmt = stmt_create();
             stmt->type = ContinueStmt;
-            ContinueCmd cmd = {.token = token};
-            stmt->stmt->continue_cmd = cmd;
+            ContinueCmd *cmd = continue_cmd_create();
+            cmd->token = token;
+            stmt->data.continue_cmd = cmd;
             advance(cache, 1);
             break;
         }
         case Return: {
-            printf("Return at %lu:%lu\n", token->ln,
-                   token->start - token->ln_start + 1);
-            stmt = malloc(sizeof(Stmt));
-            stmt->stmt = malloc(sizeof(StmtUnion));
-            stmt->type = ReturnStmt;
             Expression *cmd_exp = NULL;
             advance(cache, 1);
             if (peek(cache, 0)->ttype != Semicolon) {
@@ -326,62 +445,57 @@ void parse(ParseCache *cache, int block, Stmt ***stmts, size_t *stmts_size) {
                 }
                 advance(cache, 1);
             }
-            ReturnCmd cmd = {.token = token, .exp = cmd_exp};
-            stmt->stmt->return_cmd = cmd;
+            stmt = stmt_create();
+            ReturnCmd *cmd = return_cmd_create();
+            stmt->type = ReturnStmt;
+            cmd->token = token;
+            cmd->exp = cmd_exp;
+            stmt->data.return_cmd = cmd;
             Token *last = peek(cache, 0);
+            if (last->ttype != Semicolon) {
+                add_error(cache, "expected semicolon at the end of the statement", last);
+                return;
+            }
             break;
         }
         case Identifier: {
-            printf("Identifier at %lu:%lu\n", token->ln,
-                   token->start - token->ln_start + 1);
-            stmt = malloc(sizeof(Stmt));
-            stmt->stmt = malloc(sizeof(StmtUnion));
+            stmt = stmt_create();
             stmt->type = OnelinerStmt;
             Oneliner *ol = parse_oneliner(cache, Semicolon);
             if (cache->err != NULL) {
                 return;
             }
-            stmt->stmt->oneliner = *ol;
+            stmt->data.oneliner = ol;
             advance(cache, 1);
             if (peek(cache, 0)->ttype != Semicolon) {
-                printf("Expected semicolon\n");
-                add_error(cache,
-                          "expected semicolon at the end of the statement",
-                          token);
+                add_error(cache, "expected semicolon at the end of the statement", token);
                 return;
             }
             break;
         }
         case If:
         case While: {
-            printf("Conditional at %lu:%lu\n", token->ln,
-                   token->start - token->ln_start + 1);
-            stmt = malloc(sizeof(Stmt));
-            stmt->stmt = malloc(sizeof(StmtUnion));
+            stmt = stmt_create();
+            Conditional *conditional = conditional_create();
             stmt->type = ConditionalStmt;
-            Conditional conditional = {.token = token};
+            conditional->token = token;
             advance(cache, 1);
             Expression *cond = parse_exp(cache, EOF_PREC, LBrace);
             if (cache->err != NULL) {
                 return;
             }
-            conditional.condition = cond;
+            conditional->condition = cond;
             if (peek(cache, 1)->ttype != LBrace) {
                 add_error(cache, "no block provided for conditional", token);
                 return;
             }
             advance(cache, 2);
-            conditional.then_block = NULL;
-            conditional.then_size = 0;
-            parse(cache, 1, &conditional.then_block,
-                  &(conditional.then_size)); // probably fine
+            parse(cache, 1, &conditional->then_block, &(conditional->then_size));
             if (cache->err != NULL) {
                 return;
             }
-            conditional.else_block = NULL;
-            conditional.else_size = 0;
             if (peek(cache, 1)->ttype != Else) {
-                stmt->stmt->conditional = conditional;
+                stmt->data.conditional = conditional;
                 break;
             }
             if (peek(cache, 2)->ttype != LBrace) {
@@ -389,147 +503,108 @@ void parse(ParseCache *cache, int block, Stmt ***stmts, size_t *stmts_size) {
                 return;
             }
             advance(cache, 3);
-            parse(cache, 1, &conditional.else_block, &(conditional.else_size));
+            parse(cache, 1, &conditional->else_block, &(conditional->else_size));
             if (cache->err != NULL) {
                 return;
             }
-            stmt->stmt->conditional = conditional;
+            stmt->data.conditional = conditional;
             break;
         }
         case For: {
-            printf("For at %lu:%lu\n", token->ln,
-                   token->start - token->ln_start + 1);
-            stmt = malloc(sizeof(Stmt));
-            stmt->stmt = malloc(sizeof(StmtUnion));
+            stmt = stmt_create();
             stmt->type = ForStmt;
-            ForLoop for_loop;
+            ForLoop *for_loop = for_loop_create();
+            for_loop->token = token;
             advance(cache, 1);
             Oneliner *init = parse_oneliner(cache, Semicolon);
-            if (peek(cache, 1)->ttype != Semicolon) {
-                add_error(cache, "expected semicolon after init",
-                          peek(cache, 0));
-                return;
-            }
-            for_loop.init = init;
-            advance(cache, 2);
-            Expression *cond = parse_exp(cache, EOF_PREC, Semicolon);
-            if (peek(cache, 1)->ttype != Semicolon) {
-                add_error(cache, "expected semicolon after condition",
-                          peek(cache, 0));
-                return;
-            }
-            for_loop.condition = cond;
-            advance(cache, 2);
-            Oneliner *after = parse_oneliner(cache, Semicolon);
-            if (peek(cache, 1)->ttype != LBrace) {
-                add_error(cache, "expected semicolon after after",
-                          peek(cache, 0));
-                return;
-            }
-            for_loop.after = after;
-            advance(cache, 2);
-            for_loop.body = NULL;
-            for_loop.body_size = 0;
-            parse(cache, 1, &for_loop.body, &(for_loop.body_size));
             if (cache->err != NULL) {
                 return;
             }
-            stmt->stmt->for_loop = for_loop;
+            if (peek(cache, 1)->ttype != Semicolon) {
+                add_error(cache, "expected semicolon after init", peek(cache, 0));
+                return;
+            }
+            for_loop->init = init;
+            advance(cache, 2);
+            Expression *cond = parse_exp(cache, EOF_PREC, Semicolon);
+            if (cache->err != NULL) {
+                return;
+            }
+            if (peek(cache, 1)->ttype != Semicolon) {
+                add_error(cache, "expected semicolon after condition", peek(cache, 0));
+                return;
+            }
+            for_loop->condition = cond;
+            advance(cache, 2);
+            Oneliner *after = parse_oneliner(cache, Semicolon);
+            if (cache->err != NULL) {
+                return;
+            }
+            if (peek(cache, 1)->ttype != LBrace) {
+                add_error(cache, "expected semicolon after after", peek(cache, 0));
+                return;
+            }
+            for_loop->after = after;
+            for_loop->body = NULL;
+            for_loop->body_size = 0;
+            advance(cache, 2);
+            parse(cache, 1, &for_loop->body, &(for_loop->body_size));
+            if (cache->err != NULL) {
+                return;
+            }
+            stmt->data.for_loop = for_loop;
             break;
         }
-        case Def: {
-            printf("Def at %lu:%lu\n", token->ln,
-                   token->start - token->ln_start + 1);
-            stmt = malloc(sizeof(Stmt));
-            stmt->stmt = malloc(sizeof(StmtUnion));
-            stmt->type = DefStmt;
-            FnDef fn_def;
-            if (peek(cache, 1)->ttype != Identifier) {
+        case Fn: {
+            Token *name_token = peek(cache, 1);
+            if (name_token->ttype != Identifier) {
                 add_error(cache, "expected function name", peek(cache, 1));
                 return;
             }
-            fn_def.name = peek(cache, 1);
-            fn_def.params = NULL;
-            fn_def.params_size = 0;
             if (peek(cache, 2)->ttype != LParen) {
-                add_error(cache, "expected function parameters",
-                          peek(cache, 2));
+                add_error(cache, "expected function parameters", peek(cache, 2));
                 return;
             }
+            stmt = stmt_create();
+            FnDefinition *fn_def = fn_definition_create();
+            FunctionType *fn_type = function_type_create();
+            GenericDT *return_type;
+            stmt->type = FnStmt;
+            fn_def->name = name_token;
             advance(cache, 3);
             int has_params = peek(cache, 0)->ttype != RParen;
-            while (has_params) {
-                printf("Parsing def param from token %lu\n", cache->current);
-                DefParam *param = malloc(sizeof(DefParam));
-                Token *name = peek(cache, 0);
-                if (name->ttype != Identifier) {
-                    add_error(cache, "expected parameter name", peek(cache, 0));
-                    return;
-                }
-                param->name = name;
-                advance(cache, 1);
-                Token *type = peek(cache, 0);
-                switch (type->ttype) {
-                case IntType:
-                    param->datatype = Int;
-                    break;
-                case BoolType:
-                    param->datatype = Bool;
-                    break;
-                default: {
-                    add_error(cache, "expected parameter type", peek(cache, 0));
-                    return;
-                }
-                }
-                fn_def.params_size++;
-                fn_def.params = realloc(fn_def.params, sizeof(DefParam *) *
-                                                           fn_def.params_size);
-                fn_def.params[fn_def.params_size - 1] = param;
-                advance(cache, 1);
-                if (peek(cache, 0)->ttype == Comma) {
-                    advance(cache, 1);
-                    continue;
-                } else if (peek(cache, 0)->ttype == RParen) {
-                    break;
-                } else {
-                    add_error(cache, "unexpected comma of right paren",
-                              peek(cache, 1));
-                    return;
-                }
+            if (has_params) {
+                parse_fn_params(cache, fn_type);
             }
-            advance(cache, 1);
-            switch (peek(cache, 0)->ttype) {
-            case IntType:
-                fn_def.datatype = Int;
-                advance(cache, 1);
-                break;
-            case BoolType:
-                fn_def.datatype = Bool;
-                advance(cache, 1);
-                break;
-            case LBrace:
-                fn_def.datatype = Void;
-                break;
-            default: {
-                printf("Error at token %lu\n", cache->current);
-                add_error(cache, "expected return type", peek(cache, 0));
+            if (cache->err != NULL) {
                 return;
             }
+            if (peek(cache, 1)->ttype == Colon) {
+                advance(cache, 2);
+                return_type = parse_type(cache);
+                if (cache->err != NULL) {
+                    return;
+                }
+            } else {
+                return_type = generic_datatype_create();
+                return_type->type = Simple;
+                return_type->data.simple_datatype = Void;
             }
-            if (fn_def.datatype != Void && peek(cache, 0)->ttype != LBrace) {
+            if (peek(cache, 1)->ttype != LBrace) {
                 add_error(cache, "expected function body", peek(cache, 0));
                 return;
             }
 
-            advance(cache, 1);
-            fn_def.body = NULL;
-            fn_def.body_size = 0;
-            printf("Parsing fn body from token %lu\n", cache->current);
-            parse(cache, 1, &fn_def.body, &(fn_def.body_size));
+            fn_type->return_type = return_type;
+            fn_def->datatype = fn_type;
+            fn_def->body = NULL;
+            fn_def->body_size = 0;
+            advance(cache, 2);
+            parse(cache, 1, &fn_def->body, &(fn_def->body_size));
             if (cache->err != NULL) {
                 return;
             }
-            stmt->stmt->fn_def = fn_def;
+            stmt->data.fn_def = fn_def;
             Token *last = peek(cache, 0);
             break;
         }
@@ -543,7 +618,6 @@ void parse(ParseCache *cache, int block, Stmt ***stmts, size_t *stmts_size) {
             return;
         }
         }
-        printf("Adding stmt\n");
         advance(cache, 1);
         (*stmts_size)++;
         size_t new_size = (*stmts_size) * sizeof(Stmt *);

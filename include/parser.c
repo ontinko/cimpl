@@ -614,7 +614,7 @@ void parse(ParseCache *cache, int block, Stmt ***stmts, size_t *stmts_size) {
             }
             return;
         default: {
-            add_error(cache, "default unexpected token", token);
+            add_error(cache, "unexpected token", token);
             return;
         }
         }

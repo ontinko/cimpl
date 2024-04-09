@@ -232,7 +232,7 @@ static void analysis_cache_process_expression(AnalysisCache *cache, Expression *
             int scope;
             analysis_cache_get(cache, op_exp->token, &exp_dt, &scope);
             if (exp_dt == NULL) {
-                analysis_cache_add_error(cache, "undefined variable 4", ReferenceError, op_exp->token);
+                analysis_cache_add_error(cache, "undefined variable", ReferenceError, op_exp->token);
             }
             *datatype = exp_dt;
             break;
@@ -294,7 +294,7 @@ static void analysis_cache_process_oneliner(AnalysisCache *cache, Oneliner *onel
             int scope;
             analysis_cache_get(cache, ass->var, &datatype, &scope);
             if (datatype == NULL) {
-                analysis_cache_add_error(cache, "undefined variable 1", ReferenceError, ass->var);
+                analysis_cache_add_error(cache, "undefined variable", ReferenceError, ass->var);
             } else if (datatype->type != Simple || datatype->data.simple_datatype != Int) {
                 analysis_cache_add_error(cache, "invalid operation for given type", TypeError, ass->var);
             } else {
@@ -321,7 +321,7 @@ static void analysis_cache_process_oneliner(AnalysisCache *cache, Oneliner *onel
                 analysis_cache_get(cache, ass->var, &var_datatype, &scope);
                 ass->datatype = var_datatype;
                 if (var_datatype == NULL) {
-                    analysis_cache_add_error(cache, "undefined variable 2", ReferenceError, ass->var);
+                    analysis_cache_add_error(cache, "undefined variable", ReferenceError, ass->var);
                 } else if (var_datatype != NULL && var_datatype->data.simple_datatype != Int) {
                     analysis_cache_add_error(cache, "invalid operation for given type", TypeError, ass->var);
                 } else if (cache->current_function == NULL) {
@@ -368,7 +368,7 @@ static void analysis_cache_process_oneliner(AnalysisCache *cache, Oneliner *onel
                 analysis_cache_get(cache, ass->var, &var_datatype, &scope);
                 ass->datatype = var_datatype;
                 if (var_datatype == NULL) {
-                    analysis_cache_add_error(cache, "undefined variable 3", ReferenceError, ass->var);
+                    analysis_cache_add_error(cache, "undefined variable", ReferenceError, ass->var);
                 } else if (!generic_datatype_compare(exp_datatype, var_datatype)) {
                     analysis_cache_add_error(cache, "invalid type", TypeError, ass->var);
                 }

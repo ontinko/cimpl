@@ -50,6 +50,8 @@ static void analysis_cache_process_expression(AnalysisCache *cache, Expression *
 
 static void analysis_cache_process_oneliner(AnalysisCache *cache, Oneliner *oneliner);
 
+static int block_returns(Stmt **stmts, size_t stmts_size);
+
 void validate(AnalysisCache *cache, Stmt **stmts, size_t stmts_size);
 
 #endif

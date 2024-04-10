@@ -422,6 +422,55 @@ static void analysis_cache_process_oneliner(AnalysisCache *cache, Oneliner *onel
     }
 }
 
+static int block_returns(Stmt **stmts, size_t stmts_size) {
+    if (stmts == NULL) {
+        return 0;
+    }
+    Stmt **to_validate = NULL;
+    size_t to_validate_size = 0;
+    for (int i = 0; i < stmts_size; i++) {
+        Stmt *stmt = stmts[i];
+        switch (stmt->type) {
+        case ReturnStmt:
+            free(to_validate);
+            return 1;
+        case ForStmt:
+        case ConditionalStmt: {
+            to_validate_size++;
+            Stmt **new_to_validate = realloc(to_validate, to_validate_size);
+            new_to_validate[to_validate_size - 1] = stmt;
+            to_validate = new_to_validate;
+            continue;
+        }
+        default:
+            continue;
+        }
+    }
+    for (int i = to_validate_size - 1; i >= 0; i--) {
+        Stmt *stmt = to_validate[i];
+        switch (stmt->type) {
+        case ForStmt: {
+            ForLoop *for_loop = stmt->data.for_loop;
+            if (block_returns(for_loop->body, for_loop->body_size)) {
+                return 1;
+            }
+            break;
+        }
+        default: {
+            Conditional *cond = stmt->data.conditional;
+            if (block_returns(cond->then_block, cond->then_size) && block_returns(cond->else_block, cond->else_size)) {
+                return 1;
+            }
+            break;
+        }
+        }
+        to_validate_size--;
+        Stmt **new_to_validate = realloc(to_validate, to_validate_size);
+        to_validate = new_to_validate;
+    }
+    return 0;
+}
+
 void validate(AnalysisCache *cache, Stmt **stmts, size_t stmts_size) {
     for (int i = 0; i < stmts_size; i++) {
         Stmt *stmt = stmts[i];
@@ -452,6 +501,8 @@ void validate(AnalysisCache *cache, Stmt **stmts, size_t stmts_size) {
                 if (!generic_datatype_compare(cache->current_function->return_type, return_type)) {
                     analysis_cache_add_error(cache, "returning wrong type", TypeError, stmt->data.return_cmd->token);
                 }
+            } else if (cache->current_function->return_type->type != Simple || cache->current_function->return_type->data.simple_datatype != Void) {
+                analysis_cache_add_error(cache, "returning wrong type", TypeError, stmt->data.return_cmd->token);
             }
             break;
         }
@@ -535,6 +586,10 @@ void validate(AnalysisCache *cache, Stmt **stmts, size_t stmts_size) {
             cache->current_function = fn->datatype;
             if (fn->body_size) {
                 validate(cache, fn->body, fn->body_size);
+            }
+            int function_should_return_value = (fn->datatype->return_type->type != Simple || fn->datatype->return_type->data.simple_datatype != Void);
+            if (function_should_return_value && !block_returns(fn->body, fn->body_size)) {
+                analysis_cache_add_error(cache, "function must return a value", TypeError, fn->name);
             }
 
             analysis_cache_shrink(cache);

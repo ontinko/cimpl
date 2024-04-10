@@ -235,6 +235,7 @@ static void analysis_cache_process_expression(AnalysisCache *cache, Expression *
                 analysis_cache_add_error(cache, "undefined variable", ReferenceError, op_exp->token);
             }
             *datatype = exp_dt;
+            op_exp->datatype = exp_dt;
             break;
         }
         }
@@ -329,7 +330,7 @@ static void analysis_cache_process_oneliner(AnalysisCache *cache, Oneliner *onel
                 } else {
                     ass->scope = -1;
                 }
-                if (exp_datatype != NULL && exp_datatype->type != Simple || exp_datatype->data.simple_datatype != Int) {
+                if (exp_datatype != NULL && (exp_datatype->type != Simple || exp_datatype->data.simple_datatype != Int)) {
                     analysis_cache_add_error(cache, "expected a number", TypeError, ass->var);
                 }
                 break;

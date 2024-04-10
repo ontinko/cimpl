@@ -291,14 +291,15 @@ void visualize_expression(Expression *exp, char *source) {
         OpExpression *op_exp = exp->data.exp;
         switch (op_exp->token->ttype) {
         case Not:
-            printf("!");
+            printf("! ");
             visualize_expression(op_exp->left, source);
             break;
         case Identifier:
         case Number:
         case True:
         case False: {
-            printf("%s", substring(source, op_exp->token->start, op_exp->token->end));
+            printf("%s:", substring(source, op_exp->token->start, op_exp->token->end));
+            generic_datatype_view(op_exp->datatype, source);
             break;
         }
         default: {
@@ -306,7 +307,8 @@ void visualize_expression(Expression *exp, char *source) {
             visualize_expression(op_exp->left, source);
             printf(" %s ", substring(source, op_exp->token->start, op_exp->token->end));
             visualize_expression(op_exp->right, source);
-            printf(")");
+            printf("):");
+            generic_datatype_view(op_exp->datatype, source);
             break;
         }
         }

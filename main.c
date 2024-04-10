@@ -6,8 +6,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 int main(int argc, char **argv) {
+    clock_t begin_time = clock();
     int debug_lexer = 0;
     int visual_debug = 0;
     char *filename = NULL;
@@ -142,7 +144,7 @@ int main(int argc, char **argv) {
     tt_int_ht_set(&infixes, LtE, 1);
 
     ParseSource p_source = tokenize(source, size);
-    printf("Size: %lu\n", p_source.size);
+    printf("Size: %lu tokens\n", p_source.size);
 
     if (debug_lexer) {
         for (size_t i = 0; i < p_source.size; i++) {
@@ -163,6 +165,8 @@ int main(int argc, char **argv) {
     AnalysisCache *an_cache = analysis_cache_create(source);
     printf("Running static analysis...\n");
     validate(an_cache, program, pg_size);
+    clock_t end_time = clock();
+    double time_spent = (double)(end_time - begin_time) / CLOCKS_PER_SEC;
     if (an_cache->errors_size) {
         for (int i = 0; i < an_cache->errors_size; i++) {
             error_print(an_cache->errors[i]);
@@ -174,4 +178,5 @@ int main(int argc, char **argv) {
         printf("\n");
         printf("Visualized successfully!\n");
     }
+    printf("Time spend parsing: %fs\n", time_spent);
 }

@@ -19,6 +19,7 @@ FunctionType *function_type_create() {
 
 OpExpression *op_expression_create() {
     OpExpression *exp = malloc(sizeof(OpExpression));
+    exp->scope = -1;
     exp->datatype = NULL;
     exp->left = NULL;
     exp->right = NULL;

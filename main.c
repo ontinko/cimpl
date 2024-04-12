@@ -1,8 +1,11 @@
 #include "include/analyzer.h"
 #include "include/ast.h"
+#include "include/bytecode.h"
+#include "include/bytecode_compiler.h"
 #include "include/error.h"
 #include "include/lexer.h"
 #include "include/parser.h"
+#include "include/vm.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -111,22 +114,21 @@ int main(int argc, char **argv) {
     tt_int_ht_set(&precs, True, 1);
     tt_int_ht_set(&precs, False, 1);
 
-    tt_int_ht_set(&precs, Lt, 2);
-    tt_int_ht_set(&precs, Gt, 2);
-    tt_int_ht_set(&precs, EqEq, 2);
-    tt_int_ht_set(&precs, NotEq, 2);
+    tt_int_ht_set(&precs, Or, 2);
+    tt_int_ht_set(&precs, And, 3);
 
-    tt_int_ht_set(&precs, Plus, 3);
-    tt_int_ht_set(&precs, Minus, 3);
+    tt_int_ht_set(&precs, Lt, 4);
+    tt_int_ht_set(&precs, Gt, 4);
+    tt_int_ht_set(&precs, EqEq, 4);
+    tt_int_ht_set(&precs, NotEq, 4);
 
-    tt_int_ht_set(&precs, Star, 4);
-    tt_int_ht_set(&precs, Slash, 4);
+    tt_int_ht_set(&precs, Plus, 5);
+    tt_int_ht_set(&precs, Minus, 5);
 
-    tt_int_ht_set(&precs, Mod, 5);
+    tt_int_ht_set(&precs, Star, 6);
+    tt_int_ht_set(&precs, Slash, 6);
 
-    tt_int_ht_set(&precs, Or, 6);
-    tt_int_ht_set(&precs, And, 7);
-    tt_int_ht_set(&precs, Not, 8);
+    tt_int_ht_set(&precs, Mod, 7);
 
     TTIntHashTable infixes = tt_int_hashtable_create();
     tt_int_ht_set(&infixes, Plus, 1);
@@ -179,4 +181,20 @@ int main(int argc, char **argv) {
         printf("Visualized successfully!\n");
     }
     printf("Time spend parsing: %fs\n", time_spent);
+    OpCode *commands = NULL;
+    size_t commands_size = 0;
+    Constant *args = NULL;
+    size_t args_size = 0;
+    int *ref_scopes = NULL;
+    size_t ref_scopes_size = 0;
+    int has_error = 0;
+    compile_to_bytecode(program, pg_size, source, &commands, &commands_size, &args, &args_size, &ref_scopes, &ref_scopes_size, &has_error);
+    if (has_error) {
+        return 64;
+    }
+    bytecode_visualize(commands, commands_size, args, args_size, ref_scopes, ref_scopes_size);
+    VM *vm;
+    vm_init(vm, commands, commands_size, args, args_size, ref_scopes, ref_scopes_size);
+    printf("\nRunning the code\n");
+    vm_run(vm);
 }

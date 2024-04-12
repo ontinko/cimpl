@@ -43,6 +43,7 @@ FunctionType *function_type_create();
 typedef struct {
     GenericDT *datatype;
     Token *token;
+    int scope;
     struct Expression *left;
     struct Expression *right;
 } OpExpression;

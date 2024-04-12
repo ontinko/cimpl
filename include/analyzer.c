@@ -236,6 +236,7 @@ static void analysis_cache_process_expression(AnalysisCache *cache, Expression *
             }
             *datatype = exp_dt;
             op_exp->datatype = exp_dt;
+            op_exp->scope = scope;
             break;
         }
         }
@@ -259,6 +260,7 @@ static void analysis_cache_process_expression(AnalysisCache *cache, Expression *
         } else {
             call->datatype = fn_datatype->data.fn_datatype->return_type;
         }
+        call->scope = scope;
         *datatype = call->datatype;
 
         int has_validatable_params = is_defined && call->args_size == fn_datatype->data.fn_datatype->params_size;

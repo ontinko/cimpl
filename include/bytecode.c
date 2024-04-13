@@ -1,11 +1,10 @@
 #include "bytecode.h"
 #include <stdio.h>
 
-void bytecode_visualize(OpCode *commands, size_t commands_size, Constant *args, size_t args_size, int *ref_scopes, size_t ref_scopes_size) {
+void bytecode_visualize(OpCode *commands, Constant *args, int *ref_scopes, size_t program_size) {
     printf("\nVisualizing bytecode\n\n");
-    size_t args_count = 0;
-    size_t scopes_count = 0;
-    for (int i = 0; i < commands_size; i++) {
+    for (int i = 0; i < program_size; i++) {
+        printf("%d: ", i);
         switch (commands[i]) {
         case CreateScopeCode:
             printf("CSCOPE\n");
@@ -13,18 +12,20 @@ void bytecode_visualize(OpCode *commands, size_t commands_size, Constant *args, 
         case DestroyScopeCode:
             printf("DSCOPE\n");
             break;
+        case GotoCode:
+            printf("GOTO %d\n", args[i].int_data);
+            break;
+        case GotoIfCode:
+            printf("GOTO_IF %d\n", args[i].int_data);
+            break;
         case PushCode:
-            printf("PUSH %d\n", args[args_count].int_data);
-            args_count++;
+            printf("PUSH %d\n", args[i].int_data);
             break;
         case LoadCode:
-            printf("LOAD %s\n", args[args_count].var_name);
-            args_count++;
+            printf("LOAD %s from %d\n", args[i].var_name, ref_scopes[i]);
             break;
         case StoreCode:
-            printf("STORE %s to %d\n", args[args_count].var_name, ref_scopes[scopes_count]);
-            args_count++;
-            scopes_count++;
+            printf("STORE %s to %d\n", args[i].var_name, ref_scopes[i]);
             break;
         case ReturnCode:
             printf("RETURN\n");

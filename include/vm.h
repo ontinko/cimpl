@@ -20,16 +20,14 @@ typedef struct {
     Constant *stack;
     size_t stack_size;
     OpCode *commands;
-    size_t commands_size;
     Constant *args;
-    size_t args_size;
     int *ref_scopes;
-    size_t ref_scopes_size;
+    size_t program_size;
     Scope **memory;
     size_t memory_size;
 } VM;
 
-void vm_init(VM *vm, OpCode *commands, size_t commands_size, Constant *args, size_t args_size, int *ref_scopes, size_t ref_scopes_size);
+void vm_init(VM *vm, OpCode *commands, Constant *args, int *ref_scopes, size_t program_size);
 
 void vm_run(VM *vm);
 

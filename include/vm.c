@@ -20,11 +20,13 @@ static void scope_init(Scope *scope) {
 }
 
 static void scope_destroy(Scope *scope) {
-    for (int i = 0; i < scope->size; i++) {
-        for (int j = 0; j < 512; j++) {
-            free(scope->const_names[i][j]);
+    if (scope->const_names != NULL) {
+        for (int i = 0; i < scope->size; i++) {
+            for (int j = 0; j < 512; j++) {
+                free(scope->const_names[i][j]);
+            }
+            free(scope->const_values[i]);
         }
-        free(scope->const_values[i]);
     }
     free(scope);
 }
@@ -97,8 +99,11 @@ static void memory_load(Scope **memory, size_t memory_size, char *const_name, in
 void memory_visualize(Scope **memory, size_t memory_size) {
     printf("\nState of the memory:\n");
     for (int i = 0; i < memory_size; i++) {
-        printf("\nScope %d\n\n", i);
+        printf("SCOPE %d\n", i);
         Scope *scope = memory[i];
+        if (scope->const_names == NULL) {
+            continue;
+        }
         for (int j = 0; j < scope->size; j++) {
             for (int k = 0; k < 512; k++) {
                 if (scope->const_names[j][k] == NULL) {
@@ -125,24 +130,20 @@ static void stack_pop(Constant **stack, size_t *stack_size, Constant *constant) 
     *stack = new_stack;
 }
 
-void vm_init(VM *vm, OpCode *commands, size_t commands_size, Constant *args, size_t args_size, int *ref_scopes, size_t ref_scopes_size) {
+void vm_init(VM *vm, OpCode *commands, Constant *args, int *ref_scopes, size_t program_size) {
     vm->memory = malloc(sizeof(Scope *));
     vm->memory_size = 0;
+    vm->program_size = program_size;
     vm->stack = NULL;
     vm->stack_size = 0;
     vm->commands = commands;
-    vm->commands_size = commands_size;
     vm->args = args;
-    vm->args_size = args_size;
     vm->ref_scopes = ref_scopes;
-    vm->ref_scopes_size = ref_scopes_size;
 }
 
 void vm_run(VM *vm) {
-    size_t args_counter = 0;
-    size_t scope_counter = 0;
-    size_t command_counter;
-    for (command_counter = 0; command_counter < vm->commands_size; command_counter++) {
+    int command_counter = 0;
+    while (command_counter < vm->program_size) {
         OpCode command = vm->commands[command_counter];
         switch (command) {
         case CreateScopeCode:
@@ -154,25 +155,20 @@ void vm_run(VM *vm) {
             memory_shrink(&vm->memory, &vm->memory_size);
             break;
         case PushCode:
-            stack_push(&vm->stack, &vm->stack_size, vm->args[args_counter]);
-            args_counter++;
+            stack_push(&vm->stack, &vm->stack_size, vm->args[command_counter]);
             break;
         case LoadCode: {
             Constant constant;
-            char *const_name = vm->args[args_counter].var_name;
-            int const_scope = vm->ref_scopes[scope_counter];
-            args_counter++;
-            scope_counter++;
+            char *const_name = vm->args[command_counter].var_name;
+            int const_scope = vm->ref_scopes[command_counter];
             memory_load(vm->memory, vm->memory_size, const_name, const_scope, &constant);
             stack_push(&vm->stack, &vm->stack_size, constant);
             break;
         }
         case StoreCode: {
             Constant constant;
-            char *const_name = vm->args[args_counter].var_name;
-            int const_scope = vm->ref_scopes[scope_counter];
-            args_counter++;
-            scope_counter++;
+            char *const_name = vm->args[command_counter].var_name;
+            int const_scope = vm->ref_scopes[command_counter];
             stack_pop(&vm->stack, &vm->stack_size, &constant);
             memory_store(vm->memory, vm->memory_size, const_name, const_scope, constant);
             break;
@@ -248,10 +244,24 @@ void vm_run(VM *vm) {
             stack_push(&vm->stack, &vm->stack_size, result);
             break;
         }
-        case ReturnCode:
-        default:
-            printf("Illegal instruction\n");
+        case GotoCode: {
+            command_counter = vm->args[command_counter].int_data;
+            continue;
+        }
+        case GotoIfCode: {
+            Constant condition;
+            stack_pop(&vm->stack, &vm->stack_size, &condition);
+            if (condition.bool_data) {
+                command_counter = vm->args[command_counter].int_data;
+                continue;
+            }
             break;
         }
+        case ReturnCode:
+        default:
+            printf("Illegal instruction at %d\n", command_counter);
+            break;
+        }
+        command_counter++;
     }
 }

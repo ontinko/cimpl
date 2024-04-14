@@ -77,8 +77,9 @@ typedef struct {
 } Token;
 
 typedef struct {
+    Token *tokens;
     size_t size;
-    Token **tokens;
+    size_t capacity;
 } ParseSource;
 
 typedef struct {

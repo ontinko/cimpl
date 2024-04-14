@@ -150,20 +150,22 @@ int main(int argc, char **argv) {
 
     if (debug_lexer) {
         for (size_t i = 0; i < p_source.size; i++) {
-            printf("%lu:   %s\n", i, token_view(&preview, p_source.tokens[i], source));
+            printf("%lu:   %s\n", i, token_view(&preview, &p_source.tokens[i], source));
         }
     }
 
     ParseCache cache = {
         .err = NULL, .current = 0, .legal_infixes = &infixes, .precs = &precs, .tokens = p_source.tokens, .tokens_size = p_source.size};
     size_t pg_size = 0;
-    Stmt **program = NULL;
+    size_t pg_capacity = 0;
+    Stmt *program = NULL;
     printf("Running the parser...\n");
-    parse(&cache, 0, &program, &pg_size);
+    parse(&cache, 0, &program, &pg_size, &pg_capacity);
     if (cache.err != NULL) {
         error_print(cache.err);
         return 1;
     }
+
     AnalysisCache *an_cache = analysis_cache_create(source);
     printf("Running static analysis...\n");
     validate(an_cache, program, pg_size);

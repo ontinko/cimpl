@@ -226,14 +226,14 @@ static void compile_oneliner(char *source, Oneliner *oneliner, OpCode **commands
     }
 }
 
-void compile_to_bytecode(Stmt **stmts, size_t stmts_size, char *source, OpCode **commands, Constant **args, int **ref_scopes, size_t *program_size,
+void compile_to_bytecode(Stmt *stmts, size_t stmts_size, char *source, OpCode **commands, Constant **args, int **ref_scopes, size_t *program_size,
                          int *has_error) {
     if (stmts_size == 0) {
         return;
     }
     add_command(commands, program_size, CreateScopeCode);
     for (int stmt_i = 0; stmt_i < stmts_size; stmt_i++) {
-        Stmt *stmt = stmts[stmt_i];
+        Stmt *stmt = &stmts[stmt_i];
         switch (stmt->type) {
         case OnelinerStmt: {
             Oneliner *oneliner = stmt->data.oneliner;
@@ -309,7 +309,7 @@ void compile_to_bytecode(Stmt **stmts, size_t stmts_size, char *source, OpCode *
             Oneliner *init = for_loop->init;
             Expression *condition = for_loop->condition;
             Oneliner *after = for_loop->after;
-            Stmt **body = for_loop->body;
+            Stmt *body = for_loop->body;
             size_t body_size = for_loop->body_size;
 
             add_command(commands, program_size, CreateScopeCode);

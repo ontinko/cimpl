@@ -1,13 +1,15 @@
+#include "lexer.h"
 #include "token.h"
 #include "utils.h"
-#include "lexer.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 ParseSource tokenize(char *source, size_t source_size) {
-    ParseSource result = {.size = 0};
+    ParseSource result = {.size = 0, .capacity = 256};
+    Token *tokens = malloc(sizeof(Token) * result.capacity);
+    result.tokens = tokens;
 
     ChHashTable singlechars = ch_hashtable_create();
     ch_ht_set(&singlechars, ',', Comma);
@@ -66,10 +68,7 @@ ParseSource tokenize(char *source, size_t source_size) {
     printf("Started lexing\n");
     while (start < source_size) {
         end = start + 1;
-        Token *token = malloc(sizeof(Token));
-        token->ln = line;
-        token->start = start;
-        token->ln_start = line_start;
+        Token token = {.ln = line, .start = start, .ln_start = line_start};
         char ch = source[start];
         switch (ch) {
         case ' ':
@@ -87,33 +86,33 @@ ParseSource tokenize(char *source, size_t source_size) {
             continue;
         case '|':
             if (source[start + 1] == '|') {
-                token->ttype = Or;
+                token.ttype = Or;
                 start += 2;
             } else {
-                token->ttype = Illegal;
+                token.ttype = Illegal;
                 start++;
             }
             end = start;
             break;
         case '&':
             if (source[start + 1] == '&') {
-                token->ttype = And;
+                token.ttype = And;
                 start += 2;
             } else {
-                token->ttype = Illegal;
+                token.ttype = Illegal;
                 start++;
             }
             end = start;
             break;
         case -1:
-            token->ttype = Eof;
+            token.ttype = Eof;
             start++;
             break;
         default: {
             TokenType op_ttype = ch_ht_get(&operators, ch);
             if (op_ttype != Illegal) {
                 if (source[start + 1] == '=') {
-                    token->ttype = ch_ht_get(&eq_modifiers, ch);
+                    token.ttype = ch_ht_get(&eq_modifiers, ch);
                     start += 2;
                     end = start;
                     break;
@@ -121,19 +120,19 @@ ParseSource tokenize(char *source, size_t source_size) {
                 if (source[start + 1] == ch) {
                     TokenType ttype = ch_ht_get(&self_modifiers, ch);
                     if (ttype != Illegal) {
-                        token->ttype = ttype;
+                        token.ttype = ttype;
                         start += 2;
                         end = start;
                         break;
                     }
                 }
                 start++;
-                token->ttype = op_ttype;
+                token.ttype = op_ttype;
                 break;
             }
             TokenType schar_ttype = ch_ht_get(&singlechars, ch);
             if (schar_ttype != Illegal) {
-                token->ttype = schar_ttype;
+                token.ttype = schar_ttype;
                 start++;
                 break;
             }
@@ -141,7 +140,7 @@ ParseSource tokenize(char *source, size_t source_size) {
                 while (isdigit(source[end])) {
                     end++;
                 }
-                token->ttype = Number;
+                token.ttype = Number;
                 start = end;
                 break;
             }
@@ -151,21 +150,25 @@ ParseSource tokenize(char *source, size_t source_size) {
                 }
                 TokenType kwtype = lm_get(&keywords, substring(source, start, end));
                 if (kwtype != Illegal) {
-                    token->ttype = kwtype;
+                    token.ttype = kwtype;
                 } else {
-                    token->ttype = Identifier;
+                    token.ttype = Identifier;
                 }
                 start = end;
                 break;
             }
-            token->ttype = Illegal;
+            token.ttype = Illegal;
             start++;
         }
         }
-        token->end = end;
+        token.end = end;
+        if (result.capacity <= result.size) {
+            result.capacity *= 2;
+            Token *new_tokens = realloc(result.tokens, sizeof(Token) * result.capacity);
+            result.tokens = new_tokens;
+        }
+        result.tokens[result.size] = token;
         result.size++;
-        result.tokens = realloc(result.tokens, result.size * sizeof(Token));
-        result.tokens[result.size - 1] = token;
     }
     return result;
 }

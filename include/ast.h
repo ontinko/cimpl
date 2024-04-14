@@ -33,12 +33,12 @@ typedef struct {
 GenericDT *generic_datatype_create();
 
 struct FunctionType {
-    FnParam **params;
+    FnParam *params;
     size_t params_size;
     GenericDT *return_type;
 };
 
-FunctionType *function_type_create();
+void function_type_init(FunctionType *fn_type);
 
 typedef struct {
     GenericDT *datatype;
@@ -48,17 +48,17 @@ typedef struct {
     struct Expression *right;
 } OpExpression;
 
-OpExpression *op_expression_create();
+void op_expression_init(OpExpression *exp);
 
 typedef struct {
     GenericDT *datatype;
     Token *call_name;
-    struct Expression **args;
+    struct Expression *args;
     size_t args_size;
     int scope;
 } Call;
 
-Call *call_create();
+void call_init(Call *call);
 
 union ExpUnion {
     OpExpression *exp;
@@ -70,8 +70,6 @@ typedef struct Expression {
     ExpUnion data;
 } Expression;
 
-Expression *expression_create();
-
 typedef struct {
     Token *var;
     GenericDT *datatype;
@@ -81,23 +79,23 @@ typedef struct {
     int scope;
 } Assignment;
 
-Assignment *assignment_create();
+void assignment_init(Assignment *ass);
 
 struct FnParam {
     GenericDT *datatype;
     Token *name;
 };
 
-FnParam *fn_param_create();
+void fn_param_init(FnParam *param);
 
 typedef struct {
     Token *name;
     FunctionType *datatype;
-    Stmt **body;
+    Stmt *body;
     size_t body_size;
 } FnDefinition;
 
-FnDefinition *fn_definition_create();
+void fn_definition_init(FnDefinition *fn_def);
 
 typedef union {
     Assignment *assignment;
@@ -109,60 +107,58 @@ typedef struct {
     OnelinerUnion data;
 } Oneliner;
 
-Oneliner *oneliner_create();
-
 typedef struct ForLoop {
     Token *token;
     Oneliner *init;
     Expression *condition;
     Oneliner *after;
-    Stmt **body;
+    Stmt *body;
     size_t body_size;
 } ForLoop;
 
-ForLoop *for_loop_create();
+void for_loop_init(ForLoop *loop);
 
 typedef struct {
     Token *token;
     Expression *condition;
-    Stmt **then_block;
-    Stmt **else_block;
+    Stmt *then_block;
+    Stmt *else_block;
     size_t then_size;
     size_t else_size;
 } Conditional;
 
-Conditional *conditional_create();
+void conditional_init(Conditional *cond);
 
 typedef struct {
     Token *token;
 } BreakCmd;
 
-BreakCmd *break_cmd_create();
+void break_cmd_init(BreakCmd *cmd);
 
 typedef struct {
     Token *token;
 } ContinueCmd;
 
-ContinueCmd *continue_cmd_create();
+void continue_cmd_init(ContinueCmd *cmd);
 
 typedef struct {
     Token *token;
 } OpenScopeCmd;
 
-OpenScopeCmd *open_scope_cmd_create();
+void open_scope_cmd_init(OpenScopeCmd *cmd);
 
 typedef struct {
     Token *token;
 } CloseScopeCmd;
 
-CloseScopeCmd *close_scope_cmd_create();
+void close_scope_cmd_init(CloseScopeCmd *cmd);
 
 typedef struct {
     Token *token;
     Expression *exp;
 } ReturnCmd;
 
-ReturnCmd *return_cmd_create();
+void return_cmd_init(ReturnCmd *cmd);
 
 typedef union {
     ForLoop *for_loop;
@@ -181,13 +177,11 @@ struct Stmt {
     StmtUnion data;
 };
 
-Stmt *stmt_create();
-
 static void generic_datatype_view(GenericDT *datatype, char *source);
 
 int generic_datatype_compare(GenericDT *first, GenericDT *second);
 
-void visualize_program(Stmt **stmts, size_t stmts_size, int tab_size, char *source);
+void visualize_program(Stmt *stmts, size_t stmts_size, int tab_size, char *source);
 
 static void visualize_expression(Expression *exp, char *source);
 #endif

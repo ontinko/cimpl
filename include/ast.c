@@ -9,128 +9,79 @@ GenericDT *generic_datatype_create() {
     return datatype;
 }
 
-FunctionType *function_type_create() {
-    FunctionType *fn_type = malloc(sizeof(FunctionType));
+void function_type_init(FunctionType *fn_type) {
     fn_type->params_size = 0;
     fn_type->params = NULL;
     fn_type->return_type = NULL;
-    return fn_type;
 }
 
-OpExpression *op_expression_create() {
-    OpExpression *exp = malloc(sizeof(OpExpression));
+void op_expression_init(OpExpression *exp) {
     exp->scope = -1;
     exp->datatype = NULL;
     exp->left = NULL;
     exp->right = NULL;
     exp->token = NULL;
-    return exp;
 }
 
-Call *call_create() {
-    Call *call = malloc(sizeof(Call));
+void call_init(Call *call) {
     call->datatype = NULL;
     call->args = NULL;
     call->args_size = 0;
     call->call_name = NULL;
     call->scope = -1;
-    return call;
 }
 
-Expression *expression_create() {
-    Expression *exp = malloc(sizeof(Expression));
-    return exp;
-}
-
-Assignment *assignment_create() {
-    Assignment *ass = malloc(sizeof(Assignment));
+void assignment_init(Assignment *ass) {
     ass->exp = NULL;
     ass->var = NULL;
     ass->op = NULL;
     ass->datatype = NULL;
     ass->new_var = 0;
     ass->scope = -1;
-    return ass;
 }
 
-FnParam *fn_param_create() {
-    FnParam *param = malloc(sizeof(FnParam));
+void fn_param_init(FnParam *param) {
     param->name = NULL;
     param->datatype = NULL;
-    return param;
 }
 
-FnDefinition *fn_definition_create() {
-    FnDefinition *fn_def = malloc(sizeof(FnDefinition));
+void fn_definition_init(FnDefinition *fn_def) {
     fn_def->name = NULL;
     fn_def->datatype = NULL;
     fn_def->body = NULL;
     fn_def->body_size = 0;
-    return fn_def;
 }
 
-Oneliner *oneliner_create() {
-    Oneliner *oneliner = malloc(sizeof(Oneliner));
-    return oneliner;
-}
-
-ForLoop *for_loop_create() {
-    ForLoop *loop = malloc(sizeof(ForLoop));
+void for_loop_init(ForLoop *loop) {
     loop->token = NULL;
     loop->init = NULL;
     loop->condition = NULL;
     loop->after = NULL;
     loop->body = NULL;
     loop->body_size = 0;
-    return loop;
 }
 
-Conditional *conditional_create() {
-    Conditional *cond = malloc(sizeof(Conditional));
+void conditional_init(Conditional *cond) {
     cond->token = NULL;
     cond->condition = NULL;
     cond->then_block = NULL;
     cond->else_block = NULL;
     cond->then_size = 0;
     cond->else_size = 0;
-    return cond;
 }
 
-BreakCmd *break_cmd_create() {
-    BreakCmd *cmd = malloc(sizeof(BreakCmd));
-    cmd->token = NULL;
-    return cmd;
-}
+void break_cmd_init(BreakCmd *cmd) { cmd->token = NULL; }
 
-ContinueCmd *continue_cmd_create() {
-    ContinueCmd *cmd = malloc(sizeof(ContinueCmd));
-    cmd->token = NULL;
-    return cmd;
-}
+void continue_cmd_init(ContinueCmd *cmd) { cmd->token = NULL; }
 
-ReturnCmd *return_cmd_create() {
-    ReturnCmd *cmd = malloc(sizeof(ReturnCmd));
+void return_cmd_init(ReturnCmd *cmd) {
     cmd->token = NULL;
     cmd->exp = NULL;
-    return cmd;
 }
 
-OpenScopeCmd *open_scope_cmd_create() {
-    OpenScopeCmd *cmd = malloc(sizeof(OpenScopeCmd));
-    cmd->token = NULL;
-    return cmd;
-}
+void open_scope_cmd_init(OpenScopeCmd *cmd) { cmd->token = NULL; }
 
-CloseScopeCmd *close_scope_cmd_create() {
-    CloseScopeCmd *cmd = malloc(sizeof(CloseScopeCmd));
-    cmd->token = NULL;
-    return cmd;
-}
-
-Stmt *stmt_create() {
-    Stmt *stmt = malloc(sizeof(Stmt));
-    return stmt;
-}
+void close_scope_cmd_init(CloseScopeCmd *cmd) { cmd->token = NULL; }
 
 int generic_datatype_compare(GenericDT *first, GenericDT *second) {
     if (first == NULL || second == NULL) {
@@ -150,7 +101,7 @@ int generic_datatype_compare(GenericDT *first, GenericDT *second) {
             return 0;
         }
         for (int i = 0; i < first->data.fn_datatype->params_size; i++) {
-            if (!generic_datatype_compare(first->data.fn_datatype->params[i]->datatype, second->data.fn_datatype->params[i]->datatype)) {
+            if (!generic_datatype_compare(first->data.fn_datatype->params[i].datatype, second->data.fn_datatype->params[i].datatype)) {
                 return 0;
             }
         }
@@ -182,7 +133,7 @@ void visualize_oneliner(Oneliner *oneliner, char *source) {
         Call *call = oneliner->data.call;
         printf("%s(", substring(source, call->call_name->start, call->call_name->end));
         for (int i = 0; i < call->args_size; i++) {
-            visualize_expression(call->args[i], source);
+            visualize_expression(&call->args[i], source);
             if (i != call->args_size - 1) {
                 printf(", ");
             }
@@ -194,19 +145,19 @@ void visualize_oneliner(Oneliner *oneliner, char *source) {
     }
 }
 
-void visualize_program(Stmt **stmts, size_t stmts_size, int tab_size, char *source) {
+void visualize_program(Stmt *stmts, size_t stmts_size, int tab_size, char *source) {
     for (int i = 0; i < stmts_size; i++) {
         tab(tab_size);
-        Stmt *stmt = stmts[i];
-        switch (stmt->type) {
+        Stmt stmt = stmts[i];
+        switch (stmt.type) {
         case OnelinerStmt: {
-            Oneliner *oneliner = stmt->data.oneliner;
+            Oneliner *oneliner = stmt.data.oneliner;
             visualize_oneliner(oneliner, source);
             printf(";");
             break;
         }
         case ConditionalStmt: {
-            Conditional *cond = stmt->data.conditional;
+            Conditional *cond = stmt.data.conditional;
             printf("%s ", substring(source, cond->token->start, cond->token->end));
             visualize_expression(cond->condition, source);
             if (cond->then_size) {
@@ -226,7 +177,7 @@ void visualize_program(Stmt **stmts, size_t stmts_size, int tab_size, char *sour
             break;
         }
         case ForStmt: {
-            ForLoop *for_loop = stmt->data.for_loop;
+            ForLoop *for_loop = stmt.data.for_loop;
             printf("for ");
             visualize_oneliner(for_loop->init, source);
             printf("; ");
@@ -244,7 +195,7 @@ void visualize_program(Stmt **stmts, size_t stmts_size, int tab_size, char *sour
             break;
         }
         case FnStmt: {
-            FnDefinition *fn = stmt->data.fn_def;
+            FnDefinition *fn = stmt.data.fn_def;
             GenericDT dt = {.type = Complex};
             dt.data.fn_datatype = fn->datatype;
             printf("%s : ", substring(source, fn->name->start, fn->name->end));
@@ -265,7 +216,7 @@ void visualize_program(Stmt **stmts, size_t stmts_size, int tab_size, char *sour
             printf("continue;");
             break;
         case ReturnStmt: {
-            ReturnCmd *cmd = stmt->data.return_cmd;
+            ReturnCmd *cmd = stmt.data.return_cmd;
             printf("return");
             if (cmd->exp != NULL) {
                 printf(" ");
@@ -319,7 +270,7 @@ void visualize_expression(Expression *exp, char *source) {
         Call *call = exp->data.fn_call;
         printf("%s(", substring(source, call->call_name->start, call->call_name->end));
         for (int i = 0; i < call->args_size; i++) {
-            visualize_expression(call->args[i], source);
+            visualize_expression(&call->args[i], source);
             if (i != call->args_size - 1) {
                 printf(", ");
             }
@@ -353,8 +304,8 @@ static void generic_datatype_view(GenericDT *datatype, char *source) {
     default: {
         printf("fn(");
         for (int i = 0; i < datatype->data.fn_datatype->params_size; i++) {
-            FnParam *param = datatype->data.fn_datatype->params[i];
-            generic_datatype_view(param->datatype, source);
+            FnParam param = datatype->data.fn_datatype->params[i];
+            generic_datatype_view(param.datatype, source);
             if (i != datatype->data.fn_datatype->params_size - 1) {
                 printf(", ");
             }

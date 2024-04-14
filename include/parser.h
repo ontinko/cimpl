@@ -4,7 +4,7 @@
 #include "error.h"
 
 typedef struct {
-    Token **tokens;
+    Token *tokens;
     size_t tokens_size;
     size_t current;
     Error *err;
@@ -12,7 +12,7 @@ typedef struct {
     TTIntHashTable *legal_infixes;
 } ParseCache;
 
-void parse(ParseCache *cache, int block, Stmt ***stmts, size_t *stmts_size);
+void parse(ParseCache *cache, int block, Stmt **stmts, size_t *stmts_size, size_t *stmts_capacity);
 
 static void advance(ParseCache *cache, size_t step);
 
@@ -20,7 +20,7 @@ static Token *peek(ParseCache *cache, size_t step);
 
 static void add_error(ParseCache *cache, char *message, Token *token);
 
-static Expression *parse_exp(ParseCache *cache, int prec, TokenType end);
+static void parse_exp(ParseCache *cache, int prec, TokenType end, Expression *exp);
 
 static void parse_fn_params(ParseCache *cache, FunctionType *fn_type);
 

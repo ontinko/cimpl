@@ -269,8 +269,8 @@ static void analysis_cache_process_expression(AnalysisCache *cache, Expression *
         }
         for (int i = 0; i < call->args_size; i++) {
             GenericDT *arg_dt;
-            analysis_cache_process_expression(cache, call->args[i], &arg_dt);
-            if (has_validatable_params && arg_dt != NULL && !generic_datatype_compare(arg_dt, fn_datatype->data.fn_datatype->params[i]->datatype)) {
+            analysis_cache_process_expression(cache, &call->args[i], &arg_dt);
+            if (has_validatable_params && arg_dt != NULL && !generic_datatype_compare(arg_dt, fn_datatype->data.fn_datatype->params[i].datatype)) {
                 analysis_cache_add_error(cache, "argument has wrong type", TypeError, call->call_name);
             }
         }
@@ -413,8 +413,8 @@ static void analysis_cache_process_oneliner(AnalysisCache *cache, Oneliner *onel
 
         for (int i = 0; i < call->args_size; i++) {
             GenericDT *arg_datatype;
-            analysis_cache_process_expression(cache, call->args[i], &arg_datatype);
-            if (is_args_count_valid && !generic_datatype_compare(arg_datatype, datatype->data.fn_datatype->params[i]->datatype)) {
+            analysis_cache_process_expression(cache, &call->args[i], &arg_datatype);
+            if (is_args_count_valid && !generic_datatype_compare(arg_datatype, datatype->data.fn_datatype->params[i].datatype)) {
                 analysis_cache_add_error(cache, "wrong parameter type for the function", TypeError, call->call_name);
             }
         }
@@ -424,14 +424,14 @@ static void analysis_cache_process_oneliner(AnalysisCache *cache, Oneliner *onel
     }
 }
 
-static int block_returns(Stmt **stmts, size_t stmts_size) {
+static int block_returns(Stmt *stmts, size_t stmts_size) {
     if (stmts == NULL) {
         return 0;
     }
     Stmt **to_validate = NULL;
     size_t to_validate_size = 0;
     for (int i = 0; i < stmts_size; i++) {
-        Stmt *stmt = stmts[i];
+        Stmt *stmt = &stmts[i];
         switch (stmt->type) {
         case ReturnStmt:
             free(to_validate);
@@ -473,9 +473,9 @@ static int block_returns(Stmt **stmts, size_t stmts_size) {
     return 0;
 }
 
-void validate(AnalysisCache *cache, Stmt **stmts, size_t stmts_size) {
+void validate(AnalysisCache *cache, Stmt *stmts, size_t stmts_size) {
     for (int i = 0; i < stmts_size; i++) {
-        Stmt *stmt = stmts[i];
+        Stmt *stmt = &stmts[i];
         switch (stmt->type) {
         case OpenScopeStmt:
             analysis_cache_extend(cache);
@@ -567,12 +567,12 @@ void validate(AnalysisCache *cache, Stmt **stmts, size_t stmts_size) {
 
             analysis_cache_extend(cache);
             for (int i = 0; i < fn->datatype->params_size; i++) {
-                int param_is_redefined = analysis_cache_defined_in_current_scope(cache, fn->datatype->params[i]->name);
+                int param_is_redefined = analysis_cache_defined_in_current_scope(cache, fn->datatype->params[i].name);
                 if (param_is_redefined) {
                     analysis_cache_add_error(cache, "parameter with the same name already exists for given function", ReferenceError,
-                                             fn->datatype->params[i]->name);
+                                             fn->datatype->params[i].name);
                 } else {
-                    analysis_cache_set(cache, fn->datatype->params[i]->name, fn->datatype->params[i]->datatype, -1);
+                    analysis_cache_set(cache, fn->datatype->params[i].name, fn->datatype->params[i].datatype, -1);
                 }
             }
             if (is_invalid) {

@@ -19,30 +19,33 @@ static void scope_destroy(Scope *scope);
 typedef struct {
     Constant *stack;
     size_t stack_size;
+    int stack_capacity;
     OpCode *commands;
     Constant *args;
     int *ref_scopes;
     size_t program_size;
-    Scope **memory;
+    Scope *memory;
     size_t memory_size;
+    int memory_capacity;
 } VM;
 
 void vm_init(VM *vm, OpCode *commands, Constant *args, int *ref_scopes, size_t program_size);
 
 void vm_run(VM *vm);
 
-static void stack_push(Constant **stack, size_t *stack_size, Constant constant);
+static void stack_push(Constant **stack, size_t *stack_size, int *stack_capacity, Constant constant);
 
-static void stack_pop(Constant **stack, size_t *stack_size, Constant *constant);
+static void stack_pop(Constant **stack, size_t *stack_size, int *stack_capacity, Constant *constant);
 
-void memory_visualize(Scope **memory, size_t memory_size);
+void memory_visualize(Scope *memory, size_t memory_size);
 
-static void memory_extend(Scope ***memory, size_t *memory_size);
 
-static void memory_shrink(Scope ***memory, size_t *memory_size);
+static void memory_extend(Scope **memory, size_t *memory_size, int *memory_capacity);
 
-static void memory_store(Scope **memory, size_t memory_size, char *const_name, int const_scope, Constant constant);
+static void memory_shrink(Scope **memory, size_t *memory_size);
 
-static void memory_load(Scope **memory, size_t memory_size, char *const_name, int const_scope, Constant *constant);
+static void memory_store(Scope *memory, size_t memory_size, char *const_name, int const_scope, Constant constant);
+
+static void memory_load(Scope *memory, size_t memory_size, char *const_name, int const_scope, Constant *constant);
 
 #endif

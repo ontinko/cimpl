@@ -150,15 +150,15 @@ static void compile_oneliner(char *source, Oneliner *oneliner, OpCode **commands
     case AssignmentOL: {
         Assignment *ass = oneliner->data.assignment;
         if (ass->exp != NULL) {
-            compile_expression(source, ass->exp, commands, args, ref_scopes, program_size, has_error);
-            if (*has_error) {
-                return;
-            }
         }
         OpCode command;
         switch (ass->op->ttype) {
         case ColEq:
         case Eq: {
+            compile_expression(source, ass->exp, commands, args, ref_scopes, program_size, has_error);
+            if (*has_error) {
+                return;
+            }
             break;
         }
         case PlusEq:
@@ -335,6 +335,12 @@ void compile_to_bytecode(Stmt **stmts, size_t stmts_size, char *source, OpCode *
             add_command(commands, program_size, DestroyScopeCode);
             break;
         }
+        // case FnStmt: {
+        //     FnDefinition *fn_def = stmt->data.fn_def;
+        //     Stmt **body = fn_def->body;
+        //     size_t body_size = fn_def->body_size;
+        //     char *name = substring(source, fn_def->name->start, fn_def->name->end);
+        // }
         default:
             printf("Illegal statement\n");
             return;

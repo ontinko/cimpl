@@ -28,7 +28,6 @@ static void scope_destroy(Scope *scope) {
             free(scope->const_values[i]);
         }
     }
-    free(scope);
 }
 
 static void scope_set(Scope *scope, char *const_name, Constant const_value) {
@@ -64,81 +63,91 @@ static void scope_get(Scope *scope, char *const_name, Constant *const_value) {
     }
 }
 
-static void memory_extend(Scope ***memory, size_t *memory_size) {
+static void memory_extend(Scope **memory, size_t *memory_size, int *memory_capacity) {
+    if (*memory_capacity <= *memory_size) {
+        *memory_capacity += 32;
+        Scope *new_memory = realloc(*memory, *memory_capacity * sizeof(Scope));
+        *memory = new_memory;
+    }
+    Scope new_scope;
+    scope_init(&new_scope);
+    (*memory)[*memory_size] = new_scope;
     (*memory_size)++;
-    Scope **new_scopes = realloc(*memory, *memory_size * sizeof(Scope *));
-    Scope *new_scope = malloc(sizeof(Scope));
-    scope_init(new_scope);
-    new_scopes[*memory_size - 1] = new_scope;
-    *memory = new_scopes;
 }
 
-static void memory_shrink(Scope ***memory, size_t *memory_size) {
+static void memory_shrink(Scope **memory, size_t *memory_size) {
     (*memory_size)--;
-    scope_destroy((*memory)[*memory_size]);
-    Scope **new_scopes = realloc(*memory, *memory_size * sizeof(Scope *));
-    *memory = new_scopes;
+    scope_destroy(&(*memory)[*memory_size]);
 }
 
-static void memory_store(Scope **memory, size_t memory_size, char *const_name, int const_scope, Constant constant) {
+static void memory_store(Scope *memory, size_t memory_size, char *const_name, int const_scope, Constant constant) {
     if (const_scope == -1) {
         const_scope = memory_size - 1;
     }
-    Scope *scope = memory[const_scope];
+    Scope *scope = &(memory[const_scope]);
     scope_set(scope, const_name, constant);
 }
 
-static void memory_load(Scope **memory, size_t memory_size, char *const_name, int const_scope, Constant *constant) {
+static void memory_load(Scope *memory, size_t memory_size, char *const_name, int const_scope, Constant *constant) {
     if (const_scope == -1) {
         const_scope = memory_size - 1;
     }
-    Scope *scope = memory[const_scope];
+    Scope *scope = &(memory[const_scope]);
     scope_get(scope, const_name, constant);
 }
 
-void memory_visualize(Scope **memory, size_t memory_size) {
+void memory_visualize(Scope *memory, size_t memory_size) {
     printf("\nState of the memory:\n");
     for (int i = 0; i < memory_size; i++) {
         printf("SCOPE %d\n", i);
-        Scope *scope = memory[i];
-        if (scope->const_names == NULL) {
+        Scope scope = memory[i];
+        if (scope.const_names == NULL) {
             continue;
         }
-        for (int j = 0; j < scope->size; j++) {
+        for (int j = 0; j < scope.size; j++) {
             for (int k = 0; k < 512; k++) {
-                if (scope->const_names[j][k] == NULL) {
+                if (scope.const_names[j][k] == NULL) {
                     continue;
                 }
-                Constant val = scope->const_values[j][k];
-                printf("%s = %d\n", scope->const_names[j][k], val.int_data);
+                Constant val = scope.const_values[j][k];
+                printf("%s = %d\n", scope.const_names[j][k], val.int_data);
             }
         }
     }
 }
 
-static void stack_push(Constant **stack, size_t *stack_size, Constant constant) {
+static void stack_push(Constant **stack, size_t *stack_size, int *stack_capacity, Constant constant) {
+    if (*stack_capacity <= *stack_size) {
+        *stack_capacity *= 2;
+        Constant *new_stack = realloc(*stack, *stack_capacity * sizeof(Constant));
+        *stack = new_stack;
+    }
+    (*stack)[*stack_size] = constant;
     (*stack_size)++;
-    Constant *new_stack = realloc(*stack, *stack_size * sizeof(Constant *));
-    new_stack[*stack_size - 1] = constant;
-    *stack = new_stack;
 }
 
-static void stack_pop(Constant **stack, size_t *stack_size, Constant *constant) {
+static void stack_pop(Constant **stack, size_t *stack_size, int *stack_capacity, Constant *constant) {
+    if (*stack_capacity > 1024 && *stack_size <= *stack_capacity / 3) {
+        *stack_capacity /= 2;
+        Constant *new_stack = realloc(*stack, *stack_capacity * sizeof(Constant));
+        *stack = new_stack;
+    }
     (*stack_size)--;
     *constant = (*stack)[*stack_size];
-    Constant *new_stack = realloc(*stack, *stack_size * sizeof(Constant *));
-    *stack = new_stack;
 }
 
 void vm_init(VM *vm, OpCode *commands, Constant *args, int *ref_scopes, size_t program_size) {
-    vm->memory = malloc(sizeof(Scope *));
+    vm->memory = NULL;
     vm->memory_size = 0;
+    vm->memory_capacity = 0;
     vm->program_size = program_size;
-    vm->stack = NULL;
-    vm->stack_size = 0;
     vm->commands = commands;
     vm->args = args;
     vm->ref_scopes = ref_scopes;
+    vm->stack_size = 0;
+    vm->stack_capacity = 128;
+    Constant *stack = malloc(sizeof(Constant) * vm->stack_capacity);
+    vm->stack = stack;
 }
 
 void vm_run(VM *vm) {
@@ -147,29 +156,27 @@ void vm_run(VM *vm) {
         OpCode command = vm->commands[command_counter];
         switch (command) {
         case CreateScopeCode:
-            memory_extend(&vm->memory, &vm->memory_size);
+            memory_extend(&vm->memory, &vm->memory_size, &vm->memory_capacity);
             break;
         case DestroyScopeCode:
-            printf("\nClearing scope");
-            memory_visualize(vm->memory, vm->memory_size);
             memory_shrink(&vm->memory, &vm->memory_size);
             break;
         case PushCode:
-            stack_push(&vm->stack, &vm->stack_size, vm->args[command_counter]);
+            stack_push(&vm->stack, &vm->stack_size, &vm->stack_capacity, vm->args[command_counter]);
             break;
         case LoadCode: {
             Constant constant;
             char *const_name = vm->args[command_counter].var_name;
             int const_scope = vm->ref_scopes[command_counter];
             memory_load(vm->memory, vm->memory_size, const_name, const_scope, &constant);
-            stack_push(&vm->stack, &vm->stack_size, constant);
+            stack_push(&vm->stack, &vm->stack_size, &vm->stack_capacity, constant);
             break;
         }
         case StoreCode: {
             Constant constant;
             char *const_name = vm->args[command_counter].var_name;
             int const_scope = vm->ref_scopes[command_counter];
-            stack_pop(&vm->stack, &vm->stack_size, &constant);
+            stack_pop(&vm->stack, &vm->stack_size, &vm->stack_capacity, &constant);
             memory_store(vm->memory, vm->memory_size, const_name, const_scope, constant);
             break;
         }
@@ -189,8 +196,8 @@ void vm_run(VM *vm) {
             Constant result;
             Constant left;
             Constant right;
-            stack_pop(&vm->stack, &vm->stack_size, &right);
-            stack_pop(&vm->stack, &vm->stack_size, &left);
+            stack_pop(&vm->stack, &vm->stack_size, &vm->stack_capacity, &right);
+            stack_pop(&vm->stack, &vm->stack_size, &vm->stack_capacity, &left);
             switch (command) {
             case IntAddCode:
                 result.int_data = left.int_data + right.int_data;
@@ -233,15 +240,15 @@ void vm_run(VM *vm) {
                 printf("Illegal instruction\n");
                 return;
             }
-            stack_push(&vm->stack, &vm->stack_size, result);
+            stack_push(&vm->stack, &vm->stack_size, &vm->stack_capacity, result);
             break;
         }
         case BoolNotCode: {
             Constant result;
             Constant exp;
-            stack_pop(&vm->stack, &vm->stack_size, &exp);
+            stack_pop(&vm->stack, &vm->stack_size, &vm->stack_capacity, &exp);
             result.bool_data = !exp.bool_data;
-            stack_push(&vm->stack, &vm->stack_size, result);
+            stack_push(&vm->stack, &vm->stack_size, &vm->stack_capacity, result);
             break;
         }
         case GotoCode: {
@@ -250,7 +257,7 @@ void vm_run(VM *vm) {
         }
         case GotoIfCode: {
             Constant condition;
-            stack_pop(&vm->stack, &vm->stack_size, &condition);
+            stack_pop(&vm->stack, &vm->stack_size, &vm->stack_capacity, &condition);
             if (condition.bool_data) {
                 command_counter = vm->args[command_counter].int_data;
                 continue;

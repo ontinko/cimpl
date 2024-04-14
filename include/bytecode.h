@@ -126,8 +126,28 @@ typedef enum {
 // 21: push 1
 // 22: int_add
 // 23: store result
-
-typedef enum { IntConstant, BoolConstant } ConstantType;
+//
+//
+// fn double_if_true(a:int, b:bool) int {
+//     if b {
+//         return a * 2;
+//     }
+//     return 0;
+// }
+// result := double_if_true(3, true);
+//
+//
+// 0: <if_block>
+// 1: return 0
+// 2: goto vm.after_call
+// 3: dscope
+// 4: cscope
+// 5: push 3
+// 6: store a
+// 7: push true
+// 8: store b
+// 9: goto 0
+// 10: store result
 
 typedef union {
     int int_data;

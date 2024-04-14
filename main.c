@@ -190,9 +190,15 @@ int main(int argc, char **argv) {
     if (has_error) {
         return 64;
     }
-    bytecode_visualize(commands, args, ref_scopes, program_size);
-    VM *vm;
-    vm_init(vm, commands, args, ref_scopes, program_size);
+    if (visual_debug) {
+        bytecode_visualize(commands, args, ref_scopes, program_size);
+    }
+    VM vm;
+    vm_init(&vm, commands, args, ref_scopes, program_size);
     printf("\nRunning the code\n");
-    vm_run(vm);
+    clock_t run_start_time = clock();
+    vm_run(&vm);
+    clock_t run_finish_time = clock();
+    double run_time_spent = (double)(run_finish_time - run_start_time) / CLOCKS_PER_SEC;
+    printf("Time spent executing: %fs\n", run_time_spent);
 }

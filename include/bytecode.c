@@ -1,7 +1,7 @@
 #include "bytecode.h"
 #include <stdio.h>
 
-void bytecode_visualize(OpCode *commands, Constant *args, int *ref_scopes, size_t program_size) {
+void bytecode_visualize(OpCode *commands, Constant *args, size_t program_size) {
     printf("\nVisualizing bytecode\n\n");
     for (int i = 0; i < program_size; i++) {
         printf("%d: ", i);
@@ -22,10 +22,10 @@ void bytecode_visualize(OpCode *commands, Constant *args, int *ref_scopes, size_
             printf("PUSH %d\n", args[i].int_data);
             break;
         case LoadCode:
-            printf("LOAD %s from %d\n", args[i].var_name, ref_scopes[i]);
+            printf("LOAD with offset %d\n", args[i].int_data);
             break;
         case StoreCode:
-            printf("STORE %s to %d\n", args[i].var_name, ref_scopes[i]);
+            printf("STORE with offset %d\n", args[i].int_data);
             break;
         case ReturnCode:
             printf("RETURN\n");

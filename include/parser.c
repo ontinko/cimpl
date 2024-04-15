@@ -61,7 +61,6 @@ static void parse_fn_params(ParseCache *cache, FunctionType *fn_type) {
 }
 
 static GenericDT *parse_type(ParseCache *cache) {
-    printf("Parsing type\n");
     Token *token = &cache->tokens[cache->current];
     switch (token->ttype) {
     case IntType: {
@@ -177,7 +176,6 @@ Call *parse_fn_call(ParseCache *cache) {
 }
 
 void parse_prefix(ParseCache *cache, Expression *exp) {
-    printf("Parsing prefix\n");
     Token *token = peek(cache, 0);
     switch (token->ttype) {
     case Number: {
@@ -261,10 +259,8 @@ void parse_prefix(ParseCache *cache, Expression *exp) {
 }
 
 static void parse_exp(ParseCache *cache, int prec, TokenType end, Expression *exp) {
-    printf("Parsing expression\n");
     Expression left;
     parse_prefix(cache, &left);
-    printf("Parsed prefix\n");
     if (cache->err != NULL) {
         return;
     }
@@ -321,7 +317,6 @@ static void parse_exp(ParseCache *cache, int prec, TokenType end, Expression *ex
 }
 
 Oneliner *parse_oneliner(ParseCache *cache, TokenType end) {
-    printf("Parsing oneliner\n");
     Oneliner *ol = malloc(sizeof(Oneliner));
     Token *name = peek(cache, 0);
     Token *next = peek(cache, 1);
@@ -389,34 +384,50 @@ Oneliner *parse_oneliner(ParseCache *cache, TokenType end) {
     return ol;
 }
 
+void stmts_append(Stmt **stmts, size_t *stmts_size, size_t *stmts_capacity, Stmt *stmt) {
+    if (*stmts_capacity <= *stmts_size) {
+        if (*stmts_capacity == 0) {
+            *stmts_capacity = 128;
+        } else {
+            *stmts_capacity *= 2;
+        }
+        Stmt *new_stmts = realloc(*stmts, (*stmts_capacity) * sizeof(Stmt));
+        *stmts = new_stmts;
+    }
+    (*stmts)[*stmts_size] = *stmt;
+    (*stmts_size)++;
+}
+
 void parse(ParseCache *cache, int block, Stmt **stmts, size_t *stmts_size, size_t *stmts_capacity) {
     while (cache->current < cache->tokens_size) {
         Token *token = peek(cache, 0);
-        Stmt stmt;
+        Stmt final_stmt;
         switch (token->ttype) {
         case LBrace: {
-            stmt.type = OpenScopeStmt;
-            OpenScopeCmd *o_cmd = malloc(sizeof(OpenScopeCmd));
-            o_cmd->token = token;
-            stmt.data.open_scope_cmd = o_cmd;
-            (*stmts_size)++;
-            *stmts = realloc(*stmts, (*stmts_size) * sizeof(Stmt));
-            (*stmts)[*stmts_size - 1] = stmt;
-            advance(cache, 1);
+            {
+                Stmt open_scope;
+                open_scope.type = OpenScopeStmt;
+                OpenScopeCmd *o_cmd = malloc(sizeof(OpenScopeCmd));
+                o_cmd->token = token;
+                open_scope.data.open_scope_cmd = o_cmd;
+                stmts_append(stmts, stmts_size, stmts_capacity, &open_scope);
+                advance(cache, 1);
+            }
             parse(cache, 1, stmts, stmts_size, stmts_capacity);
             if (cache->err != NULL) {
                 return;
             }
-            token = peek(cache, 0);
-            Stmt close_scope;
-            close_scope.type = CloseScopeStmt;
-            CloseScopeCmd *c_cmd = malloc(sizeof(CloseScopeCmd));
-            c_cmd->token = token;
-            close_scope.data.close_scope_cmd = c_cmd;
-            (*stmts_size)++;
-            *stmts = realloc(*stmts, (*stmts_size) * sizeof(Stmt));
-            (*stmts)[(*stmts_size) - 1] = close_scope;
-            advance(cache, 1);
+
+            {
+                token = peek(cache, 0);
+                Stmt close_scope;
+                close_scope.type = CloseScopeStmt;
+                CloseScopeCmd *c_cmd = malloc(sizeof(CloseScopeCmd));
+                c_cmd->token = token;
+                close_scope.data.close_scope_cmd = c_cmd;
+                stmts_append(stmts, stmts_size, stmts_capacity, &close_scope);
+                advance(cache, 1);
+            }
             continue;
         }
         case RBrace: {
@@ -430,10 +441,10 @@ void parse(ParseCache *cache, int block, Stmt **stmts, size_t *stmts_size, size_
                 add_error(cache, "expected semicolon at the end of the statement", token);
                 return;
             }
-            stmt.type = BreakStmt;
+            final_stmt.type = BreakStmt;
             BreakCmd *cmd = malloc(sizeof(BreakCmd));
             cmd->token = token;
-            stmt.data.break_cmd = cmd;
+            final_stmt.data.break_cmd = cmd;
             advance(cache, 1);
             break;
         }
@@ -442,10 +453,10 @@ void parse(ParseCache *cache, int block, Stmt **stmts, size_t *stmts_size, size_
                 add_error(cache, "expected semicolon at the end of the statement", token);
                 return;
             }
-            stmt.type = ContinueStmt;
+            final_stmt.type = ContinueStmt;
             ContinueCmd *cmd = malloc(sizeof(ContinueCmd));
             cmd->token = token;
-            stmt.data.continue_cmd = cmd;
+            final_stmt.data.continue_cmd = cmd;
             advance(cache, 1);
             break;
         }
@@ -461,23 +472,24 @@ void parse(ParseCache *cache, int block, Stmt **stmts, size_t *stmts_size, size_
                 }
                 advance(cache, 1);
             }
-            stmt.type = ReturnStmt;
+            final_stmt.type = ReturnStmt;
             cmd->token = token;
-            stmt.data.return_cmd = cmd;
+            final_stmt.data.return_cmd = cmd;
             Token *last = peek(cache, 0);
             if (last->ttype != Semicolon) {
                 add_error(cache, "expected semicolon at the end of the statement", last);
                 return;
             }
+            final_stmt = final_stmt;
             break;
         }
         case Identifier: {
-            stmt.type = OnelinerStmt;
+            final_stmt.type = OnelinerStmt;
             Oneliner *ol = parse_oneliner(cache, Semicolon);
             if (cache->err != NULL) {
                 return;
             }
-            stmt.data.oneliner = ol;
+            final_stmt.data.oneliner = ol;
             advance(cache, 1);
             if (peek(cache, 0)->ttype != Semicolon) {
                 add_error(cache, "expected semicolon at the end of the statement", token);
@@ -489,7 +501,7 @@ void parse(ParseCache *cache, int block, Stmt **stmts, size_t *stmts_size, size_
         case While: {
             Conditional *conditional = malloc(sizeof(Conditional));
             conditional_init(conditional);
-            stmt.type = ConditionalStmt;
+            final_stmt.type = ConditionalStmt;
             conditional->token = token;
             advance(cache, 1);
             Expression *cond = malloc(sizeof(Expression));
@@ -509,7 +521,7 @@ void parse(ParseCache *cache, int block, Stmt **stmts, size_t *stmts_size, size_
                 return;
             }
             if (peek(cache, 1)->ttype != Else) {
-                stmt.data.conditional = conditional;
+                final_stmt.data.conditional = conditional;
                 break;
             }
             if (peek(cache, 2)->ttype != LBrace) {
@@ -522,11 +534,11 @@ void parse(ParseCache *cache, int block, Stmt **stmts, size_t *stmts_size, size_
             if (cache->err != NULL) {
                 return;
             }
-            stmt.data.conditional = conditional;
+            final_stmt.data.conditional = conditional;
             break;
         }
         case For: {
-            stmt.type = ForStmt;
+            final_stmt.type = ForStmt;
             ForLoop *for_loop = malloc(sizeof(ForLoop));
             for_loop_init(for_loop);
             for_loop->token = token;
@@ -569,7 +581,7 @@ void parse(ParseCache *cache, int block, Stmt **stmts, size_t *stmts_size, size_
             if (cache->err != NULL) {
                 return;
             }
-            stmt.data.for_loop = for_loop;
+            final_stmt.data.for_loop = for_loop;
             break;
         }
         case Fn: {
@@ -587,7 +599,7 @@ void parse(ParseCache *cache, int block, Stmt **stmts, size_t *stmts_size, size_
             FunctionType *fn_type = malloc(sizeof(FunctionType));
             function_type_init(fn_type);
             GenericDT *return_type;
-            stmt.type = FnStmt;
+            final_stmt.type = FnStmt;
             fn_def->name = name_token;
             advance(cache, 3);
             int has_params = peek(cache, 0)->ttype != RParen;
@@ -623,7 +635,7 @@ void parse(ParseCache *cache, int block, Stmt **stmts, size_t *stmts_size, size_
             if (cache->err != NULL) {
                 return;
             }
-            stmt.data.fn_def = fn_def;
+            final_stmt.data.fn_def = fn_def;
             Token *last = peek(cache, 0);
             break;
         }
@@ -638,16 +650,6 @@ void parse(ParseCache *cache, int block, Stmt **stmts, size_t *stmts_size, size_
         }
         }
         advance(cache, 1);
-        if (*stmts_capacity <= *stmts_size) {
-            if (*stmts_capacity == 0) {
-                *stmts_capacity = 128;
-            } else {
-                *stmts_capacity *= 2;
-            }
-            Stmt *new_stmts = realloc(*stmts, (*stmts_capacity) * sizeof(Stmt));
-            *stmts = new_stmts;
-        }
-        (*stmts)[*stmts_size] = stmt;
-        (*stmts_size)++;
+        stmts_append(stmts, stmts_size, stmts_capacity, &final_stmt);
     }
 }

@@ -183,20 +183,18 @@ int main(int argc, char **argv) {
         printf("Visualized successfully!\n");
     }
     printf("Time spend parsing: %fs\n", time_spent);
-    OpCode *commands = NULL;
-    size_t program_size = 0;
-    Constant *args = NULL;
-    int *ref_scopes = NULL;
-    int has_error = 0;
-    compile_to_bytecode(program, pg_size, source, &commands, &args, &ref_scopes, &program_size, &has_error);
-    if (has_error) {
+    CompileCache compile_cache;
+    compile_cache_init(&compile_cache);
+    compile_cache.source = source;
+    compile_to_bytecode(program, pg_size, &compile_cache);
+    if (compile_cache.has_error) {
         return 64;
     }
     if (visual_debug) {
-        bytecode_visualize(commands, args, ref_scopes, program_size);
+        bytecode_visualize(compile_cache.commands, compile_cache.args, compile_cache.program_size);
     }
     VM vm;
-    vm_init(&vm, commands, args, ref_scopes, program_size);
+    vm_init(&vm, compile_cache.commands, compile_cache.args, compile_cache.program_size);
     printf("\nRunning the code\n");
     clock_t run_start_time = clock();
     vm_run(&vm);

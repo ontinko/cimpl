@@ -151,10 +151,8 @@ typedef enum {
 
 typedef union {
     int int_data;
-    uint8_t bool_data;
-    char *var_name;
-} Constant;
+} Constant; // for now only holds int data, in the future will support strings
 
-void bytecode_visualize(OpCode *commands, Constant *args, int *ref_scopes, size_t program_size);
+void bytecode_visualize(OpCode *commands, Constant *args, size_t program_size);
 
 #endif

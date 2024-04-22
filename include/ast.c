@@ -142,6 +142,11 @@ void visualize_oneliner(Oneliner *oneliner, char *source) {
         generic_datatype_view(call->datatype, source);
         break;
     }
+    case PrintlnOL: {
+        printf("println ");
+        visualize_expression(oneliner->data.println->exp, source);
+        break;
+    }
     }
 }
 
@@ -246,6 +251,7 @@ void visualize_expression(Expression *exp, char *source) {
             printf("! ");
             visualize_expression(op_exp->left, source);
             break;
+        case Text:
         case Identifier:
         case Number:
         case True:
@@ -294,6 +300,9 @@ static void generic_datatype_view(GenericDT *datatype, char *source) {
             break;
         case Bool:
             printf("bool");
+            break;
+        case String:
+            printf("string");
             break;
         case Void:
             printf("void");

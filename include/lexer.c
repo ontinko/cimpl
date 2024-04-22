@@ -58,8 +58,10 @@ ParseSource tokenize(char *source, size_t source_size) {
     lm_insert(&keywords, "return", Return);
     lm_insert(&keywords, "int", IntType);
     lm_insert(&keywords, "bool", BoolType);
+    lm_insert(&keywords, "str", StringType);
     lm_insert(&keywords, "true", True);
     lm_insert(&keywords, "false", False);
+    lm_insert(&keywords, "println", Println);
 
     size_t start = 0;
     size_t end;
@@ -103,6 +105,25 @@ ParseSource tokenize(char *source, size_t source_size) {
                 start++;
             }
             end = start;
+            break;
+        case '"':
+            token.start++;
+            while (1) {
+                char next = source[start + 1];
+                if (next == '\n' || next == -1) {
+                    token.ttype = Illegal;
+                    end = start + 1;
+                    start += 2;
+                    break;
+                }
+                if (next == '"') {
+                    token.ttype = Text;
+                    end = start + 1;
+                    start += 2;
+                    break;
+                }
+                start++;
+            }
             break;
         case -1:
             token.ttype = Eof;

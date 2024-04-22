@@ -31,6 +31,7 @@ typedef struct {
     OpCode *commands;
     Constant *args;
     VarPositions *memory;
+    int *definition_counts;
     size_t program_size;
     size_t memory_size;
     size_t memory_capacity;
@@ -44,9 +45,9 @@ void memory_store(VarPositions *memory, size_t memory_size, char *var_name, int 
 
 void memory_load(VarPositions *memory, size_t memory_size, char *var_name, int var_scope, size_t *position);
 
-void memory_extend(VarPositions **memory, size_t *memory_size, size_t *memory_capacity);
+void memory_extend(CompileCache *cache);
 
-void memory_shrink(VarPositions **memory, size_t *memory_size, size_t *memory_capacity);
+void memory_shrink(CompileCache *cache);
 
 void compile_to_bytecode(Stmt *stmts, size_t stmts_size, CompileCache *cache);
 #endif

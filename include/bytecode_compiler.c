@@ -12,6 +12,7 @@ void compile_cache_init(CompileCache *cache) {
     cache->args = NULL;
     cache->commands = NULL;
     cache->memory = NULL;
+    cache->definition_counts = NULL;
     cache->has_error = 0;
     cache->stack_index = -1;
     cache->memory_size = 0;
@@ -89,21 +90,25 @@ void memory_load(VarPositions *memory, size_t memory_size, char *var_name, int v
     var_positions_get(scope, var_name, position);
 }
 
-void memory_extend(VarPositions **memory, size_t *memory_size, size_t *memory_capacity) {
-    if (*memory_capacity <= *memory_size) {
-        *memory_capacity += 32;
-        VarPositions *new_memory = realloc(*memory, *memory_capacity * sizeof(VarPositions));
-        *memory = new_memory;
+void memory_extend(CompileCache *cache) {
+    if (cache->memory_capacity <= cache->memory_size) {
+        cache->memory_capacity += 32;
+        VarPositions *new_memory = realloc(cache->memory, cache->memory_capacity * sizeof(VarPositions));
+        int *new_def_counts = realloc(cache->definition_counts, cache->memory_capacity * sizeof(int));
+        cache->memory = new_memory;
+        cache->definition_counts = new_def_counts;
     }
     VarPositions new_scope;
     var_positions_init(&new_scope);
-    (*memory)[*memory_size] = new_scope;
-    (*memory_size)++;
+    cache->memory[cache->memory_size] = new_scope;
+    cache->definition_counts[cache->memory_size] = 0;
+    cache->memory_size++;
 }
 
-void memory_shrink(VarPositions **memory, size_t *memory_size, size_t *memory_capacity) {
-    (*memory_size)--;
-    var_positions_destroy(&(*memory)[*memory_size]);
+void memory_shrink(CompileCache *cache) {
+    cache->memory_size--;
+    cache->stack_index -= cache->definition_counts[cache->memory_size];
+    var_positions_destroy(&cache->memory[cache->memory_size]);
 }
 
 static void add_command(CompileCache *cache, OpCode command) {
@@ -136,6 +141,14 @@ static void compile_expression(Expression *exp, CompileCache *cache) {
         add_constant(cache, constant);
         cache->stack_index++;
         free(str_value);
+        break;
+    }
+    case Text: {
+        char *value = substring(cache->source, op_exp->token->start, op_exp->token->end);
+        Constant constant = {.string_data = value};
+        add_command(cache, PushCode);
+        add_constant(cache, constant);
+        cache->stack_index++;
         break;
     }
     case True:
@@ -246,6 +259,29 @@ static void compile_expression(Expression *exp, CompileCache *cache) {
 
 static void compile_oneliner(Oneliner *oneliner, CompileCache *cache) {
     switch (oneliner->type) {
+    case PrintlnOL: {
+        compile_expression(oneliner->data.println->exp, cache);
+        OpExpression *exp = oneliner->data.println->exp->data.exp;
+        switch (exp->datatype->data.simple_datatype) {
+        case Int:
+            add_command(cache, PrintlnIntCode);
+            cache->stack_index--;
+            break;
+        case Bool:
+            add_command(cache, PrintlnBoolCode);
+            cache->stack_index--;
+            break;
+        case String:
+            add_command(cache, PrintlnStrCode);
+            cache->stack_index--;
+            break;
+        default:
+            printf("Invalid type for println\n");
+            cache->has_error = 1;
+            break;
+        }
+        break;
+    }
     case AssignmentOL: {
         Assignment *ass = oneliner->data.assignment;
         if (ass->exp != NULL) {
@@ -334,6 +370,7 @@ static void compile_oneliner(Oneliner *oneliner, CompileCache *cache) {
             free(var_name);
         } else {
             memory_store(cache->memory, cache->memory_size, var_name, ass->scope, cache->stack_index);
+            cache->definition_counts[cache->memory_size - 1]++;
         }
         break;
     }
@@ -348,7 +385,7 @@ void compile_to_bytecode(Stmt *stmts, size_t stmts_size, CompileCache *cache) {
         return;
     }
     add_command(cache, CreateScopeCode);
-    memory_extend(&cache->memory, &cache->memory_size, &cache->memory_capacity);
+    memory_extend(cache);
     for (int stmt_i = 0; stmt_i < stmts_size; stmt_i++) {
         Stmt *stmt = &stmts[stmt_i];
         switch (stmt->type) {
@@ -359,11 +396,11 @@ void compile_to_bytecode(Stmt *stmts, size_t stmts_size, CompileCache *cache) {
         }
         case OpenScopeStmt:
             add_command(cache, CreateScopeCode);
-            memory_extend(&cache->memory, &cache->memory_size, &cache->memory_capacity);
+            memory_extend(cache);
             break;
         case CloseScopeStmt:
             add_command(cache, DestroyScopeCode);
-            memory_shrink(&cache->memory, &cache->memory_size, &cache->memory_capacity);
+            memory_shrink(cache);
             break;
         case ConditionalStmt: {
             Conditional *conditional = stmt->data.conditional;
@@ -435,7 +472,7 @@ void compile_to_bytecode(Stmt *stmts, size_t stmts_size, CompileCache *cache) {
             size_t body_size = for_loop->body_size;
 
             add_command(cache, CreateScopeCode);
-            memory_extend(&cache->memory, &cache->memory_size, &cache->memory_capacity);
+            memory_extend(cache);
             compile_oneliner(init, cache);
             size_t start_command_index = cache->program_size;
             compile_expression(condition, cache);
@@ -457,7 +494,7 @@ void compile_to_bytecode(Stmt *stmts, size_t stmts_size, CompileCache *cache) {
 
             (cache->args)[goto_end_arg_index].int_data = cache->program_size;
             add_command(cache, DestroyScopeCode);
-            memory_shrink(&cache->memory, &cache->memory_size, &cache->memory_capacity);
+            memory_shrink(cache);
             break;
         }
         default:
@@ -466,5 +503,5 @@ void compile_to_bytecode(Stmt *stmts, size_t stmts_size, CompileCache *cache) {
         }
     }
     add_command(cache, DestroyScopeCode);
-    memory_shrink(&cache->memory, &cache->memory_size, &cache->memory_capacity);
+    memory_shrink(cache);
 }

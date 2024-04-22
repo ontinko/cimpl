@@ -156,9 +156,6 @@ static void analysis_cache_add_error(AnalysisCache *cache, char *message, ErrorT
 }
 
 static void analysis_cache_process_expression(AnalysisCache *cache, Expression *exp, GenericDT **datatype) {
-    if (exp == NULL) {
-    } else {
-    }
     switch (exp->type) {
     case ExpExp: {
         OpExpression *op_exp = exp->data.exp;
@@ -223,7 +220,8 @@ static void analysis_cache_process_expression(AnalysisCache *cache, Expression *
         }
         case True:
         case False:
-        case Number: {
+        case Number:
+        case Text: {
             *datatype = op_exp->datatype;
             break;
         }
@@ -281,6 +279,11 @@ static void analysis_cache_process_expression(AnalysisCache *cache, Expression *
 
 static void analysis_cache_process_oneliner(AnalysisCache *cache, Oneliner *oneliner) {
     switch (oneliner->type) {
+    case PrintlnOL: {
+        GenericDT *dt;
+        analysis_cache_process_expression(cache, oneliner->data.println->exp, &dt);
+        break;
+    }
     case AssignmentOL: {
         Assignment *ass = oneliner->data.assignment;
         int is_defined_in_current_scope = analysis_cache_defined_in_current_scope(cache, ass->var);

@@ -72,6 +72,15 @@ void bytecode_visualize(OpCode *commands, Constant *args, size_t program_size) {
         case BoolOrCode:
             printf("OR\n");
             break;
+        case PrintlnIntCode:
+            printf("PRINTLN_INT\n");
+            break;
+        case PrintlnBoolCode:
+            printf("PRINTLN_BOOL\n");
+            break;
+        case PrintlnStrCode:
+            printf("PRINTLN_STR\n");
+            break;
         }
     }
 }

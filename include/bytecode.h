@@ -30,6 +30,10 @@ typedef enum {
 
     GotoIfCode,
     GotoCode,
+
+    PrintlnIntCode,
+    PrintlnBoolCode,
+    PrintlnStrCode,
 } OpCode;
 
 // cond := true;
@@ -151,7 +155,8 @@ typedef enum {
 
 typedef union {
     int int_data;
-} Constant; // for now only holds int data, in the future will support strings
+    char *string_data;
+} Constant;
 
 void bytecode_visualize(OpCode *commands, Constant *args, size_t program_size);
 

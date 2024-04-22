@@ -2,13 +2,13 @@
 #define AST_H
 #include "token.h"
 
-typedef enum { CallOL, AssignmentOL } OnelinerType;
+typedef enum { CallOL, AssignmentOL, PrintlnOL } OnelinerType;
 
 typedef enum { OnelinerStmt, ConditionalStmt, ForStmt, FnStmt, BreakStmt, ContinueStmt, OpenScopeStmt, CloseScopeStmt, ReturnStmt } StmtType;
 
 typedef enum { ExpExp, FnCallExp } ExpType;
 
-typedef enum { Bool, Int, Void } DataType;
+typedef enum { Bool, Int, String, Void } DataType;
 
 typedef enum { Simple, Complex } VarType;
 
@@ -97,9 +97,16 @@ typedef struct {
 
 void fn_definition_init(FnDefinition *fn_def);
 
+// TODO: add initializers
+typedef struct {
+    Token *token;
+    Expression *exp;
+} PrintlnCmd;
+
 typedef union {
     Assignment *assignment;
     Call *call;
+    PrintlnCmd *println;
 } OnelinerUnion;
 
 typedef struct {

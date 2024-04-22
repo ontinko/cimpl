@@ -13,6 +13,7 @@
 
 int main(int argc, char **argv) {
     clock_t begin_time = clock();
+    int debug = 0;
     int debug_lexer = 0;
     int visual_debug = 0;
     char *filename = NULL;
@@ -23,6 +24,8 @@ int main(int argc, char **argv) {
                 debug_lexer = 1;
             } else if (!strcmp(arg, "-v")) {
                 visual_debug = 1;
+            } else if (!strcmp(arg, "-d")) {
+                debug = 1;
             } else {
                 printf("Usage: cimpl [filename] [-l] [-p] [-v]\n");
                 return 64;
@@ -192,6 +195,9 @@ int main(int argc, char **argv) {
     }
     if (visual_debug) {
         bytecode_visualize(compile_cache.commands, compile_cache.args, compile_cache.program_size);
+    }
+    if (debug) {
+        return 0;
     }
     VM vm;
     vm_init(&vm, compile_cache.commands, compile_cache.args, compile_cache.program_size);

@@ -164,7 +164,31 @@ void vm_run(VM *vm) {
             }
             break;
         }
-        case ReturnCode:
+        case PrintlnIntCode: {
+            Constant data;
+            stack_pop(&vm->stack, &vm->stack_size, &vm->stack_capacity, &data);
+            printf("%d\n", data.int_data);
+            break;
+        }
+        case PrintlnBoolCode: {
+            Constant data;
+            stack_pop(&vm->stack, &vm->stack_size, &vm->stack_capacity, &data);
+            switch (data.int_data) {
+            case 0:
+                printf("false\n");
+                break;
+            default:
+                printf("true\n");
+                break;
+            }
+            break;
+        }
+        case PrintlnStrCode: {
+            Constant data;
+            stack_pop(&vm->stack, &vm->stack_size, &vm->stack_capacity, &data);
+            printf("%s\n", data.string_data);
+            break;
+        }
         default:
             printf("Illegal instruction at %d\n", command_counter);
             break;

@@ -132,9 +132,11 @@ TokenType ch_ht_get(ChHashTable *table, char ch) { return table->values[ch]; }
 char *token_view(TTHashTable *preview, Token *token, char *source) {
     switch (token->ttype) {
     case Number:
-        return substring(source, token->start, token->end);
+    case Text:
     case Identifier:
         return substring(source, token->start, token->end);
+    case Println:
+        return "println";
     default:
         return tt_ht_get(preview, token->ttype);
     }

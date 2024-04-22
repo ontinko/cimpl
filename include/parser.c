@@ -75,6 +75,12 @@ static GenericDT *parse_type(ParseCache *cache) {
         datatype->data.simple_datatype = Bool;
         return datatype;
     }
+    case StringType: {
+        GenericDT *datatype = generic_datatype_create();
+        datatype->type = Simple;
+        datatype->data.simple_datatype = String;
+        return datatype;
+    }
     case Fn: {
         GenericDT *datatype = generic_datatype_create();
         FunctionType *fn_type = malloc(sizeof(FunctionType));
@@ -226,6 +232,20 @@ void parse_prefix(ParseCache *cache, Expression *exp) {
         exp->data.exp = bool;
         return;
     }
+    case Text: {
+        OpExpression *string = malloc(sizeof(OpExpression));
+        op_expression_init(string);
+        GenericDT *datatype = generic_datatype_create();
+        exp->type = ExpExp;
+        datatype->type = Simple;
+        datatype->data.simple_datatype = String;
+        string->datatype = datatype;
+        string->token = token;
+        string->right = NULL;
+        string->left = NULL;
+        exp->data.exp = string;
+        return;
+    }
     case Identifier: {
         if (peek(cache, 1)->ttype != LParen) {
             OpExpression *id = malloc(sizeof(OpExpression));
@@ -316,9 +336,28 @@ static void parse_exp(ParseCache *cache, int prec, TokenType end, Expression *ex
     *exp = left;
 }
 
+// TODO: enable print and println
 Oneliner *parse_oneliner(ParseCache *cache, TokenType end) {
     Oneliner *ol = malloc(sizeof(Oneliner));
-    Token *name = peek(cache, 0);
+    Token *token = peek(cache, 0);
+
+    if (token->ttype == Println) {
+        ol->type = PrintlnOL;
+        ol->data.println = malloc(sizeof(PrintlnCmd));
+        advance(cache, 1);
+        Expression *exp = malloc(sizeof(Expression));
+        parse_exp(cache, EOF_PREC, Semicolon, exp);
+        if (cache->err != NULL) {
+            return NULL;
+        }
+        if (exp->type != ExpExp) {
+            add_error(cache, "cannot print functions", token);
+            return NULL;
+        }
+        ol->data.println->exp = exp;
+        return ol;
+    }
+
     Token *next = peek(cache, 1);
     if (next->ttype == LParen) {
         ol->type = CallOL;
@@ -331,7 +370,7 @@ Oneliner *parse_oneliner(ParseCache *cache, TokenType end) {
     ol->type = AssignmentOL;
     Assignment *ass = malloc(sizeof(Assignment));
     assignment_init(ass);
-    ass->var = name;
+    ass->var = token;
     switch (next->ttype) {
     case Inc:
     case Dec:
@@ -483,6 +522,7 @@ void parse(ParseCache *cache, int block, Stmt **stmts, size_t *stmts_size, size_
             final_stmt = final_stmt;
             break;
         }
+        case Println:
         case Identifier: {
             final_stmt.type = OnelinerStmt;
             Oneliner *ol = parse_oneliner(cache, Semicolon);

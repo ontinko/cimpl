@@ -27,9 +27,10 @@ typedef enum {
     Number, // any value that consists of numeric chars only
     True,   // true
     False,  // false
+    Text,   // strings
 
     Identifier, // any alphanumeric value starting with an alpha char
-    Colon,
+    Colon,      // :
 
     Eq,      // =
     ColEq,   // :=
@@ -63,9 +64,12 @@ typedef enum {
     Fn,     // fn
     Return, // return
 
-    IntType, // int
-    BoolType // bool
+    IntType,    // int
+    BoolType,   // bool
+    StringType, // string
 
+    // built in commands
+    Println,
 } TokenType;
 
 typedef struct {

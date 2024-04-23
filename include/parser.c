@@ -335,7 +335,6 @@ static void parse_exp(ParseCache *cache, int prec, TokenType end, Expression *ex
     *exp = left;
 }
 
-// TODO: enable print and println
 Oneliner *parse_oneliner(ParseCache *cache, TokenType end) {
     Oneliner *ol = malloc(sizeof(Oneliner));
     Token *token = peek(cache, 0);

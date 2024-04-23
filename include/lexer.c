@@ -2,7 +2,6 @@
 #include "token.h"
 #include "utils.h"
 #include <ctype.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -67,7 +66,6 @@ ParseSource tokenize(char *source, size_t source_size) {
     size_t end;
     size_t line = 1;
     size_t line_start = 0;
-    printf("Started lexing\n");
     while (start < source_size) {
         end = start + 1;
         Token token = {.ln = line, .start = start, .ln_start = line_start};

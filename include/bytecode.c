@@ -6,11 +6,8 @@ void bytecode_visualize(OpCode *commands, Constant *args, size_t program_size) {
     for (int i = 0; i < program_size; i++) {
         printf("%d: ", i);
         switch (commands[i]) {
-        case CreateScopeCode:
-            printf("CSCOPE\n");
-            break;
-        case DestroyScopeCode:
-            printf("DSCOPE\n");
+        case ShiftStackCode:
+            printf("SHIFT to %d\n", args[i].int_data);
             break;
         case GotoCode:
             printf("GOTO %d\n", args[i].int_data);
@@ -28,7 +25,13 @@ void bytecode_visualize(OpCode *commands, Constant *args, size_t program_size) {
             printf("STORE with offset %d\n", args[i].int_data);
             break;
         case ReturnCode:
-            printf("RETURN\n");
+            printf("RETURN with shift %d\n", args[i].int_data);
+            break;
+        case ResumeCode:
+            printf("RESUME with shift %d\n", args[i].int_data);
+            break;
+        case CallCode:
+            printf("CALL to %d\n", args[i].int_data);
             break;
         case IntAddCode:
             printf("ADD\n");
@@ -80,6 +83,9 @@ void bytecode_visualize(OpCode *commands, Constant *args, size_t program_size) {
             break;
         case PrintlnStrCode:
             printf("PRINTLN_STR\n");
+            break;
+        case EndCode:
+            printf("END\n");
             break;
         }
     }

@@ -8,20 +8,18 @@ typedef struct {
     int stack_capacity;
     OpCode *commands;
     Constant *args;
-    int *offsets;
-    int *scope_starts;
-    int scope_starts_size;
-    int scope_starts_capacity;
     size_t program_size;
+    int *command_return_points;
+    int *stack_return_points;
+    int fn_calls_size;
+    int fn_calls_capacity;
 } VM;
 
 void vm_init(VM *vm, OpCode *commands, Constant *args, size_t program_size);
 
 void vm_run(VM *vm);
 
-void vm_set_scope_start(VM *vm, int index);
-
-void vm_clear_last_scope(VM *vm);
+static void stack_resize(Constant **stack, int stack_size, int *stack_capacity);
 
 static void stack_push(Constant **stack, int *stack_size, int *stack_capacity, Constant constant);
 

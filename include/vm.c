@@ -3,24 +3,58 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static void stack_push(Constant **stack, int *stack_size, int *stack_capacity, Constant constant) {
-    if (*stack_capacity <= *stack_size) {
+static void stack_resize(Constant **stack, int stack_size, int *stack_capacity) {
+    if (*stack_capacity <= stack_size) {
         *stack_capacity *= 2;
         Constant *new_stack = realloc(*stack, *stack_capacity * sizeof(Constant));
         *stack = new_stack;
-    }
-    (*stack)[*stack_size] = constant;
-    (*stack_size)++;
-}
-
-static void stack_pop(Constant **stack, int *stack_size, int *stack_capacity, Constant *constant) {
-    if (*stack_capacity > 1024 && *stack_size <= *stack_capacity / 3) {
+    } else if (*stack_capacity > 1024 && stack_size <= *stack_capacity / 3) {
         *stack_capacity /= 2;
         Constant *new_stack = realloc(*stack, *stack_capacity * sizeof(Constant));
         *stack = new_stack;
     }
+}
+
+static void stack_push(Constant **stack, int *stack_size, int *stack_capacity, Constant constant) {
+    (*stack_size)++;
+    stack_resize(stack, *stack_size, stack_capacity);
+    (*stack)[*stack_size - 1] = constant;
+}
+
+static void stack_pop(Constant **stack, int *stack_size, int *stack_capacity, Constant *constant) {
     (*stack_size)--;
     *constant = (*stack)[*stack_size];
+    stack_resize(stack, *stack_size, stack_capacity);
+}
+
+static void vm_calls_resize(VM *vm) {
+    if (vm->fn_calls_capacity <= vm->fn_calls_size) {
+        vm->fn_calls_capacity *= 2;
+        int *new_command_stack = realloc(vm->command_return_points, vm->fn_calls_capacity * sizeof(int));
+        int *new_constant_stack = realloc(vm->stack_return_points, vm->fn_calls_capacity * sizeof(int));
+        vm->command_return_points = new_command_stack;
+        vm->stack_return_points = new_constant_stack;
+    } else if (vm->fn_calls_capacity > 256 && vm->fn_calls_size <= vm->fn_calls_capacity / 3) {
+        vm->fn_calls_capacity /= 2;
+        int *new_command_stack = realloc(vm->command_return_points, vm->fn_calls_capacity * sizeof(int));
+        int *new_constant_stack = realloc(vm->stack_return_points, vm->fn_calls_capacity * sizeof(int));
+        vm->command_return_points = new_command_stack;
+        vm->stack_return_points = new_constant_stack;
+    }
+}
+
+static void vm_calls_push(VM *vm, int stack_index, int command_index) {
+    vm->fn_calls_size++;
+    vm_calls_resize(vm);
+    vm->stack_return_points[vm->fn_calls_size - 1] = stack_index;
+    vm->command_return_points[vm->fn_calls_size - 1] = command_index;
+}
+
+static void vm_calls_pop(VM *vm, int *stack_index, int *command_index) {
+    vm->fn_calls_size--;
+    *stack_index = vm->stack_return_points[vm->fn_calls_size];
+    *command_index = vm->command_return_points[vm->fn_calls_size];
+    vm_calls_resize(vm);
 }
 
 void vm_init(VM *vm, OpCode *commands, Constant *args, size_t program_size) {
@@ -29,27 +63,14 @@ void vm_init(VM *vm, OpCode *commands, Constant *args, size_t program_size) {
     vm->args = args;
     vm->stack_size = 0;
     vm->stack_capacity = 128;
-    vm->scope_starts_size = 0;
-    vm->scope_starts_capacity = 32;
+    vm->fn_calls_size = 0;
+    vm->fn_calls_capacity = 32;
     Constant *stack = malloc(sizeof(Constant) * vm->stack_capacity);
-    int *stack_starts = malloc(sizeof(int) * vm->scope_starts_capacity);
+    int *command_return_points = malloc(sizeof(int) * vm->fn_calls_capacity);
+    int *stack_return_points = malloc(sizeof(int) * vm->fn_calls_capacity);
     vm->stack = stack;
-    vm->scope_starts = stack_starts;
-}
-
-void vm_set_scope_start(VM *vm, int index) {
-    if (vm->scope_starts_capacity <= vm->scope_starts_size) {
-        vm->scope_starts_capacity *= 2;
-        int *new_scope_starts = realloc(vm->scope_starts, vm->scope_starts_capacity);
-        vm->scope_starts = new_scope_starts;
-    }
-    vm->scope_starts[vm->scope_starts_size] = index;
-    vm->scope_starts_size++;
-}
-
-void vm_clear_last_scope(VM *vm) {
-    vm->scope_starts_size--;
-    vm->stack_size = vm->scope_starts[vm->scope_starts_size];
+    vm->command_return_points = command_return_points;
+    vm->stack_return_points = stack_return_points;
 }
 
 void vm_run(VM *vm) {
@@ -57,12 +78,11 @@ void vm_run(VM *vm) {
     while (command_counter < vm->program_size) {
         OpCode command = vm->commands[command_counter];
         switch (command) {
-        case CreateScopeCode:
-            vm_set_scope_start(vm, vm->stack_size);
+        case ShiftStackCode: {
+            int position = vm->args[command_counter].int_data;
+            vm->stack_size = position;
             break;
-        case DestroyScopeCode:
-            vm_clear_last_scope(vm);
-            break;
+        }
         case PushCode:
             stack_push(&vm->stack, &vm->stack_size, &vm->stack_capacity, vm->args[command_counter]);
             break;
@@ -155,6 +175,14 @@ void vm_run(VM *vm) {
             command_counter = vm->args[command_counter].int_data;
             continue;
         }
+        case CallCode: {
+            int resume_stack_index = vm->stack_size - 1;
+            int resume_command_index = command_counter + 1;
+            vm_calls_push(vm, resume_stack_index, resume_command_index);
+            int call_to = vm->args[command_counter].int_data;
+            command_counter = call_to;
+            continue;
+        }
         case GotoIfCode: {
             Constant condition;
             stack_pop(&vm->stack, &vm->stack_size, &vm->stack_capacity, &condition);
@@ -187,6 +215,46 @@ void vm_run(VM *vm) {
             Constant data;
             stack_pop(&vm->stack, &vm->stack_size, &vm->stack_capacity, &data);
             printf("%s\n", data.string_data);
+            break;
+        }
+        case ResumeCode: {
+            int stack_position;
+            int command_position;
+            int shift = vm->args[command_counter].int_data;
+            vm_calls_pop(vm, &stack_position, &command_position);
+            command_counter = command_position;
+            vm->stack_size = stack_position + 1 - shift;
+            break;
+        }
+        case ReturnCode: {
+            Constant value;
+            int shift = vm->args[command_counter].int_data;
+            stack_pop(&vm->stack, &vm->stack_size, &vm->stack_capacity, &value);
+            int stack_position;
+            int command_position;
+            vm_calls_pop(vm, &stack_position, &command_position);
+            command_counter = command_position;
+            vm->stack_size = stack_position + 1 - shift;
+            stack_push(&vm->stack, &vm->stack_size, &vm->stack_capacity, value);
+            continue;
+        }
+        case EndCode: {
+            vm->stack_size = 0;
+            vm->stack_capacity = 0;
+            vm->program_size = 0;
+            vm->fn_calls_size = 0;
+            vm->fn_calls_capacity = 0;
+            // printf("Freeing %p\n", vm->stack);
+            // free(vm->stack);
+            // printf("Works 2\n");
+            // free(vm->commands);
+            // printf("Works 3\n");
+            // free(vm->args);
+            // printf("Works 4\n");
+            // free(vm->stack_return_points);
+            // printf("Works 5\n");
+            // free(vm->command_return_points);
+            // printf("Works 6\n");
             break;
         }
         default:

@@ -44,7 +44,6 @@ int main(int argc, char **argv) {
     }
 
     FILE *file = fopen(filename, "r");
-    printf("Opened file\n");
     char *source = NULL;
     size_t size = 0;
 
@@ -64,7 +63,6 @@ int main(int argc, char **argv) {
         }
     }
 
-    printf("Read the file\n");
     TTHashTable preview = tt_hashtable_create();
     tt_ht_set(&preview, Illegal, "<ILLEGAL>");
     tt_ht_set(&preview, Eof, "<EOF>");
@@ -162,7 +160,6 @@ int main(int argc, char **argv) {
     size_t pg_size = 0;
     size_t pg_capacity = 0;
     Stmt *program = NULL;
-    printf("Running the parser...\n");
     parse(&cache, 0, &program, &pg_size, &pg_capacity);
     if (cache.err != NULL) {
         error_print(cache.err);
@@ -170,7 +167,6 @@ int main(int argc, char **argv) {
     }
 
     AnalysisCache *an_cache = analysis_cache_create(source);
-    printf("Running static analysis...\n");
     validate(an_cache, program, pg_size);
     clock_t end_time = clock();
     double time_spent = (double)(end_time - begin_time) / CLOCKS_PER_SEC;
@@ -189,7 +185,7 @@ int main(int argc, char **argv) {
     CompileCache compile_cache;
     compile_cache_init(&compile_cache);
     compile_cache.source = source;
-    compile_to_bytecode(program, pg_size, &compile_cache);
+    compile_program(program, pg_size, &compile_cache);
     if (compile_cache.has_error) {
         return 64;
     }
@@ -201,10 +197,10 @@ int main(int argc, char **argv) {
     }
     VM vm;
     vm_init(&vm, compile_cache.commands, compile_cache.args, compile_cache.program_size);
-    printf("\nRunning the code\n");
+    printf("\n---- program output ----\n\n");
     clock_t run_start_time = clock();
     vm_run(&vm);
     clock_t run_finish_time = clock();
     double run_time_spent = (double)(run_finish_time - run_start_time) / CLOCKS_PER_SEC;
-    printf("Time spent executing: %fs\n", run_time_spent);
+    printf("\nTime spent executing: %fs\n", run_time_spent);
 }

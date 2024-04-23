@@ -4,13 +4,12 @@
 #include <stdlib.h>
 
 typedef enum {
-    CreateScopeCode,
-    DestroyScopeCode,
+    ShiftStackCode,
     PushCode,
     LoadCode,
     ReturnCode,
-
     StoreCode,
+    CallCode,
 
     IntAddCode,
     IntSubtractCode,
@@ -30,10 +29,13 @@ typedef enum {
 
     GotoIfCode,
     GotoCode,
+    ResumeCode,
 
     PrintlnIntCode,
     PrintlnBoolCode,
     PrintlnStrCode,
+
+    EndCode,
 } OpCode;
 
 // cond := true;
@@ -132,24 +134,21 @@ typedef enum {
 // 23: store result
 //
 //
-// fn double_if_true(a:int, b:bool) int {
-//     if b {
-//         return a * 2;
-//     }
-//     return 0;
+// fn sum(a:int, b:int) int {
+//     return a + b;
 // }
-// result := double_if_true(3, true);
+// result := sum(1, 2);
 //
 //
-// 0: <if_block>
-// 1: return 0
-// 2: goto vm.after_call
-// 3: dscope
+// 0: load 1
+// 1: load 1
+// 2: add
+// 3: return 0
 // 4: cscope
-// 5: push 3
-// 6: store a
-// 7: push true
-// 8: store b
+// 5: push 1
+// 6: store arg_offset1
+// 7: push 2
+// 8: store arg_offset2
 // 9: goto 0
 // 10: store result
 

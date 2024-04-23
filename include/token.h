@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 
+// When adding new token types, DON'T FORGET TO CHECK TOKEN TYPE HASH TABLE BUCKET SIZES
 typedef enum {
     Illegal,
     Eof,
@@ -87,7 +88,7 @@ typedef struct {
 } ParseSource;
 
 typedef struct {
-    char *values[46];
+    char *values[49];
 } TTHashTable;
 
 typedef struct {
@@ -99,7 +100,7 @@ typedef struct {
 } ChHashTable;
 
 typedef struct {
-    int values[46];
+    int values[49];
 } TTIntHashTable;
 
 typedef struct LexMap {

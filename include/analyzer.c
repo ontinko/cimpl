@@ -234,7 +234,12 @@ static void analysis_cache_process_expression(AnalysisCache *cache, Expression *
             }
             *datatype = exp_dt;
             op_exp->datatype = exp_dt;
-            op_exp->scope = scope;
+            if (cache->current_function == NULL) {
+                op_exp->scope = scope;
+            } else {
+                op_exp->scope = -1;
+            }
+            char *var_name = substring(cache->source, op_exp->token->start, op_exp->token->end);
             break;
         }
         }
@@ -497,17 +502,17 @@ void validate(AnalysisCache *cache, Stmt *stmts, size_t stmts_size) {
             }
             break;
         case ReturnStmt: {
-            ReturnCmd *rtrn = stmt->data.return_cmd;
+            ReturnCmd *cmd = stmt->data.return_cmd;
             if (cache->current_function == NULL) {
-                analysis_cache_add_error(cache, "return statement outside of a function body", SyntaxError, stmt->data.return_cmd->token);
-            } else if (stmt->data.return_cmd->exp != NULL) {
+                analysis_cache_add_error(cache, "return statement outside of a function body", SyntaxError, cmd->token);
+            } else if (cmd->exp != NULL) {
                 GenericDT *return_type;
-                analysis_cache_process_expression(cache, stmt->data.return_cmd->exp, &return_type);
+                analysis_cache_process_expression(cache, cmd->exp, &return_type);
                 if (!generic_datatype_compare(cache->current_function->return_type, return_type)) {
-                    analysis_cache_add_error(cache, "returning wrong type", TypeError, stmt->data.return_cmd->token);
+                    analysis_cache_add_error(cache, "returning wrong type", TypeError, cmd->token);
                 }
             } else if (cache->current_function->return_type->type != Simple || cache->current_function->return_type->data.simple_datatype != Void) {
-                analysis_cache_add_error(cache, "returning wrong type", TypeError, stmt->data.return_cmd->token);
+                analysis_cache_add_error(cache, "returning wrong type", TypeError, cmd->token);
             }
             break;
         }

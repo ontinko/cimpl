@@ -1,7 +1,6 @@
 #include "parser.h"
 #include "ast.h"
 #include "token.h"
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -348,10 +347,6 @@ Oneliner *parse_oneliner(ParseCache *cache, TokenType end) {
         Expression *exp = malloc(sizeof(Expression));
         parse_exp(cache, EOF_PREC, Semicolon, exp);
         if (cache->err != NULL) {
-            return NULL;
-        }
-        if (exp->type != ExpExp) {
-            add_error(cache, "cannot print functions", token);
             return NULL;
         }
         ol->data.println->exp = exp;

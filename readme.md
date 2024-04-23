@@ -62,3 +62,7 @@ fn do_something() {
 }
 
 ```
+
+### TODO
+
+* Make functions first class

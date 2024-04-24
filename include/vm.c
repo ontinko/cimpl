@@ -224,7 +224,7 @@ void vm_run(VM *vm) {
             vm_calls_pop(vm, &stack_position, &command_position);
             command_counter = command_position;
             vm->stack_size = stack_position + 1 - shift;
-            break;
+            continue;
         }
         case ReturnCode: {
             Constant value;
